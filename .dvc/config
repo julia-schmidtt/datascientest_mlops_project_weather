@@ -1,0 +1,4 @@
+[core]
+    remote = origin
+['remote "origin"']
+    url = https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.dvc
