@@ -1,0 +1,45 @@
+# Data parameters
+data:
+  raw_csv: data/raw/weatherAUS.csv
+  interim_csv: data/interim/df_preprocessed.csv
+  processed_dir: data/processed
+  
+  # Processed files (output from preprocess.py)
+  X_train: data/processed/X_train.csv 
+  X_test: data/processed/X_test.csv
+  y_train: data/processed/y_train.csv
+  y_test: data/processed/y_test.csv
+  
+  # Split configuration
+  test_size: 0.2
+  random_state: 42
+  
+  # Year filtering (training_data_splits_by_year.py)
+  year_range:
+    start: 2008
+    end: 2016
+  
+  # Splits output directory
+  splits_dir: data/training_data_splits_by_year
+
+# Model parameters
+model:
+  type: xgboost
+  max_depth: 9
+  learning_rate: 0.05
+  n_estimators: 200
+  colsample_bytree: 0.8
+  subsample: 0.7
+  gamma: 0.1
+  min_child_weight: 3
+  random_state: 42
+
+# MLFlow - DagsHub Integration
+mlflow:
+  tracking_uri: https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
+  experiment_name: weather-au-rain
+
+# Features
+features:
+  target: RainTomorrow
+  drop_cols: []
