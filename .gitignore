@@ -80,12 +80,15 @@ target/
 # Track directory structure but ignore data files
 /data/raw/*
 !/data/raw/.gitkeep
+!/data/raw/*.dvc
 
 /data/processed/*
 !/data/processed/.gitkeep
+!/data/processed/*.dvc
 
 /data/interim/*
 !/data/interim/.gitkeep
+!/data/interim/*.dvc
 
 # Mac OS-specific storage files
 .DS_Store
