@@ -1,1 +1,32 @@
+# Core
+numpy<2.0.0
+pandas==2.2.2
+scikit-learn==1.5.1
+scipy==1.14.1
 
+# Modeling helpers
+xgboost==2.1.1
+lightgbm==4.5.0
+imbalanced-learn==0.12.3
+
+# Tracking
+mlflow==2.15.1
+dagshub==0.3.28
+
+# Data versioning
+dvc==3.53.2
+dvc-gdrive==3.0.1
+dvc-s3==3.2.0
+dvc-gs==3.0.1
+pathspec<0.12.0
+
+# Serving 
+fastapi==0.112.2
+uvicorn==0.30.6
+pydantic==2.8.2
+
+# Dev quality
+ruff==0.6.3
+pytest==8.3.2
+pre-commit==3.8.0
+python-dotenv==1.0.1
