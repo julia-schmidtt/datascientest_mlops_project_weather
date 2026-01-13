@@ -1,0 +1,21 @@
+{
+  "train_medians": {
+    "MinTemp": 12.0,
+    "MaxTemp": 22.6,
+    "Rainfall": 0.0,
+    "WindGustSpeed": 39.0,
+    "WindSpeed9am": 13.0,
+    "WindSpeed3pm": 19.0,
+    "Humidity9am": 70.0,
+    "Humidity3pm": 52.0,
+    "Pressure9am": 1017.6,
+    "Pressure3pm": 1015.2,
+    "Temp9am": 16.7,
+    "Temp3pm": 21.1
+  },
+  "train_modes": {
+    "WindGustDir": "W",
+    "WindDir9am": "N",
+    "WindDir3pm": "SE"
+  }
+}
