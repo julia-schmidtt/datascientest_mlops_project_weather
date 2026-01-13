@@ -17,6 +17,9 @@ from sklearn.model_selection import train_test_split
 from sklearn.preprocessing import StandardScaler
 import sys
 from pathlib import Path
+import pickle
+import json
+
 
 # Import params from config
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -147,6 +150,10 @@ print('Missing values after filling in training set: ', X_train.isnull().sum())
 print('Missing values after filling in test set: ', X_test.isnull().sum())
 
 
+# Extract locations BEFORE One-Hot Encoding for API validation
+locations_list = sorted(X_train['Location'].unique())
+
+
 # ==================== Preprocessing Step 7 ====================
 # One-Hot Encoding to achieve only numerical values in dataset
 
@@ -174,6 +181,39 @@ X_test[bool_cols] = X_test[bool_cols].astype(int)
 
 print('Preprocessing Step 8: Changed boolean to integers.')
 
+# Save data before scaling for API defaults
+print('Saving data before scaling for API usage.')
+X_train_before_scaling = X_train.copy()
+train_medians_dict = train_medians.to_dict()
+train_modes_dict = train_modes.to_dict()
+
+# Save as JSON for API
+api_data = {
+    'train_medians': train_medians_dict,
+    'train_modes': train_modes_dict
+}
+
+api_dir = Path('src/api')
+api_dir.mkdir(exist_ok=True)
+
+with open(api_dir / 'defaults.json', 'w') as f:
+    json.dump(api_data, f, indent=2)
+
+print(f'Saved defaults for API prediction to {api_dir / "defaults.json"}')
+
+
+# Save validation data for API
+validation_data = {
+    'locations': locations_list,
+    'seasons': ['Summer', 'Autumn', 'Winter', 'Spring']
+}
+
+
+with open(api_dir / 'validation_data.json', 'w') as f:
+    json.dump(validation_data, f, indent=2)
+
+print(f'Saved validation data for API prediction to {api_dir / "validation_data.json"}')
+
 
 # ==================== Preprocessing Step 9 ====================
 # Scaling of numerical columns using StandardScaler
@@ -190,7 +230,14 @@ scaler.fit(X_train[numerical_cols_scale])
 X_train[numerical_cols_scale] = scaler.transform(X_train[numerical_cols_scale])
 X_test[numerical_cols_scale] = scaler.transform(X_test[numerical_cols_scale])
 
-print('Preprocessing Step 8: Scaling of numerical columns using StandardScaler.')
+# Save scaler for usage in APi prediction endpoint
+scaler_path = 'models/scaler.pkl'
+with open(scaler_path, 'wb') as f:
+    pickle.dump(scaler, f)
+print(f'Scaler saved: {scaler_path}')
+
+
+print('Preprocessing Step 9: Scaling of numerical columns using StandardScaler.')
 
 
 # Save modeling datasets in data/processed
