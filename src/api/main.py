@@ -39,6 +39,7 @@ os.environ['MLFLOW_TRACKING_PASSWORD'] = os.getenv('DAGSHUB_TOKEN', '')
 # Import params from params.yaml
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 from src.config import PARAMS
+from src.models.predict_model import RainPredictor
 
 
 app = FastAPI(
@@ -205,6 +206,58 @@ class SimplePredictionInput(BaseModel):
             }
         }
 
+    @property
+    def model_validate(self):
+        """Pydantic V2 validator"""
+        return self
+    
+    def model_post_init(self, __context):
+        """Custom validation after model initialization"""
+        # Valid wind directions
+        valid_wind_dirs = ['N', 'NNE', 'NE', 'ENE', 'E', 'ESE', 'SE', 'SSE',
+                          'S', 'SSW', 'SW', 'WSW', 'W', 'WNW', 'NW', 'NNW']
+        
+        # 1. Validate rain_today (only 0 or 1)
+        if self.rain_today not in [0, 1]:
+            raise ValueError(f"rain_today must be 0 (No) or 1 (Yes), got {self.rain_today}")
+        
+        # 2. Validate rainfall (not negative)
+        if self.rainfall is not None and self.rainfall < 0:
+            raise ValueError(f"rainfall cannot be negative, got {self.rainfall}")
+        
+        # 3. Validate min_temp < max_temp
+        if self.min_temp >= self.max_temp:
+            raise ValueError(
+                f"min_temp ({self.min_temp}) must be less than max_temp ({self.max_temp})"
+            )
+        
+        # 4. Validate wind directions
+        if self.wind_gust_dir and self.wind_gust_dir not in valid_wind_dirs:
+            raise ValueError(
+                f"wind_gust_dir must be one of {valid_wind_dirs}, got '{self.wind_gust_dir}'"
+            )
+        if self.wind_dir_9am and self.wind_dir_9am not in valid_wind_dirs:
+            raise ValueError(
+                f"wind_dir_9am must be one of {valid_wind_dirs}, got '{self.wind_dir_9am}'"
+            )
+        if self.wind_dir_3pm and self.wind_dir_3pm not in valid_wind_dirs:
+            raise ValueError(
+                f"wind_dir_3pm must be one of {valid_wind_dirs}, got '{self.wind_dir_3pm}'"
+            )
+        
+        # 5. Validate humidity (0-100%)
+        if self.humidity_9am is not None and not (0 <= self.humidity_9am <= 100):
+            raise ValueError(f"humidity_9am must be between 0-100, got {self.humidity_9am}")
+        if self.humidity_3pm is not None and not (0 <= self.humidity_3pm <= 100):
+            raise ValueError(f"humidity_3pm must be between 0-100, got {self.humidity_3pm}")
+        
+        # 6. Validate wind speed (not negative)
+        if self.wind_gust_speed is not None and self.wind_gust_speed < 0:
+            raise ValueError(f"wind_gust_speed cannot be negative, got {self.wind_gust_speed}")
+        if self.wind_speed_9am is not None and self.wind_speed_9am < 0:
+            raise ValueError(f"wind_speed_9am cannot be negative, got {self.wind_speed_9am}")
+        if self.wind_speed_3pm is not None and self.wind_speed_3pm < 0:
+            raise ValueError(f"wind_speed_3pm cannot be negative, got {self.wind_speed_3pm}")
 
 
 # Endpoint 1: Train model
@@ -305,9 +358,8 @@ async def predict(data: Dict[str, Any]):
 @app.post("/predict/simple")
 async def predict_simple(data: SimplePredictionInput):
     """
-    Simplified prediction with minimal required features (5 features: location, date, min_temp, max_temp, rain_today).
-    Missing features are automatically filled with training set defaults and properly scaled.
-    
+    Simplified prediction using predict_model module from src/models/predict_model.py    
+
     Required: location, date, min_temp, max_temp, rain_today
     Optional: All other weather features (wind, humidity, pressure, etc.)
     """
@@ -319,106 +371,56 @@ async def predict_simple(data: SimplePredictionInput):
         )
 
     try:
-        # Validate location
-        if data.location not in validation_data['locations']:
-            raise HTTPException(
-                status_code=400,
-                detail=f"Invalid location '{data.location}'. Must be one of: {', '.join(validation_data['locations'][:10])}."
-            )
-        
-        # Extract date features
-        date_obj = datetime.strptime(data.date, "%Y-%m-%d")
-        year = date_obj.year
-        month = date_obj.month
+        # Use RainPredictor from predict_model.py
+        predictor = RainPredictor()
 
-        # Map season
-        season_map = {
-            12: 'Summer', 1: 'Summer', 2: 'Summer',
-            3: 'Autumn', 4: 'Autumn', 5: 'Autumn',
-            6: 'Winter', 7: 'Winter', 8: 'Winter',
-            9: 'Spring', 10: 'Spring', 11: 'Spring'
-        }
-        season = season_map[month]
+        # Prepare optional features
+        optional_features = {}
+        if data.wind_gust_speed is not None:
+            optional_features['wind_gust_speed'] = data.wind_gust_speed
+        if data.wind_gust_dir:
+            optional_features['wind_gust_dir'] = data.wind_gust_dir
+        if data.wind_speed_9am is not None:
+            optional_features['wind_speed_9am'] = data.wind_speed_9am
+        if data.wind_dir_9am:
+            optional_features['wind_dir_9am'] = data.wind_dir_9am
+        if data.wind_speed_3pm is not None:
+            optional_features['wind_speed_3pm'] = data.wind_speed_3pm
+        if data.wind_dir_3pm:
+            optional_features['wind_dir_3pm'] = data.wind_dir_3pm
+        if data.humidity_9am is not None:
+            optional_features['humidity_9am'] = data.humidity_9am
+        if data.humidity_3pm is not None:
+            optional_features['humidity_3pm'] = data.humidity_3pm
+        if data.pressure_9am is not None:
+            optional_features['pressure_9am'] = data.pressure_9am
+        if data.pressure_3pm is not None:
+            optional_features['pressure_3pm'] = data.pressure_3pm
+        if data.temp_9am is not None:
+            optional_features['temp_9am'] = data.temp_9am
+        if data.temp_3pm is not None:
+            optional_features['temp_3pm'] = data.temp_3pm
+        if data.rainfall is not None:
+            optional_features['rainfall'] = data.rainfall
 
-        # Build feature dictionary with defaults
-        features_raw = {
-            'MinTemp': data.min_temp,
-            'MaxTemp': data.max_temp,
-            'Rainfall': data.rainfall,
-            'WindGustSpeed': data.wind_gust_speed if data.wind_gust_speed is not None else defaults['train_medians']['WindGustSpeed'],
-            'WindSpeed9am': data.wind_speed_9am if data.wind_speed_9am is not None else defaults['train_medians']['WindSpeed9am'],
-            'WindSpeed3pm': data.wind_speed_3pm if data.wind_speed_3pm is not None else defaults['train_medians']['WindSpeed3pm'],
-            'Humidity9am': data.humidity_9am if data.humidity_9am is not None else defaults['train_medians']['Humidity9am'],
-            'Humidity3pm': data.humidity_3pm if data.humidity_3pm is not None else defaults['train_medians']['Humidity3pm'],
-            'Pressure9am': data.pressure_9am if data.pressure_9am is not None else defaults['train_medians']['Pressure9am'],
-            'Pressure3pm': data.pressure_3pm if data.pressure_3pm is not None else defaults['train_medians']['Pressure3pm'],
-            'Temp9am': data.temp_9am if data.temp_9am is not None else defaults['train_medians']['Temp9am'],
-            'Temp3pm': data.temp_3pm if data.temp_3pm is not None else defaults['train_medians']['Temp3pm'],
-            'Rainfall': data.rainfall if data.rainfall is not None else defaults['train_medians']['Rainfall'],
-            'Year': year,
-            'Location': data.location,
-            'WindGustDir': data.wind_gust_dir if data.wind_gust_dir else defaults['train_modes']['WindGustDir'],
-            'WindDir9am': data.wind_dir_9am if data.wind_dir_9am else defaults['train_modes']['WindDir9am'],
-            'WindDir3pm': data.wind_dir_3pm if data.wind_dir_3pm else defaults['train_modes']['WindDir3pm'],
-            'Season': season
-        }
-
-        # Create DataFrame
-        df = pd.DataFrame([features_raw])
-        
-        # One-hot encode categoricals (same as preprocessing)
-        categorical_cols = ['Location', 'WindGustDir', 'WindDir9am', 'WindDir3pm', 'Season']
-        df = pd.get_dummies(df, columns=categorical_cols, drop_first=True)
-        
-        # Get all expected columns from training (110 features)
-        expected_cols = pd.read_csv('data/processed/X_train.csv', nrows=0).columns.tolist()
-        
-        # Add missing columns with 0
-        for col in expected_cols:
-            if col not in df.columns:
-                df[col] = 0
-
-        # Delete column if not expected
-        for col in df.columns:
-            if col not in expected_cols:
-                df = df.drop(col, axis=1)
-
-        # Reorder columns to match training
-        df = df[expected_cols]
-        
-        # Scale numerical features
-        numerical_cols = ['MinTemp', 'MaxTemp', 'Rainfall', 'WindGustSpeed',
-                         'WindSpeed9am', 'WindSpeed3pm', 'Humidity9am', 'Humidity3pm',
-                         'Pressure9am', 'Pressure3pm', 'Temp9am', 'Temp3pm']
-        
-        df[numerical_cols] = scaler.transform(df[numerical_cols])
-        
         # Make prediction
-        prediction = model.predict(df)[0]
-        probability = model.predict_proba(df)[0][1]
+        result = predictor.predict_simple(
+            location=data.location,
+            date=data.date,
+            min_temp=data.min_temp,
+            max_temp=data.max_temp,
+            rain_today=data.rain_today,
+            **optional_features
+        )
 
-        return {
-            "status": "success",
-            "prediction": int(prediction),
-            "label": "Rain Tomorrow" if prediction == 1 else "No Rain Tomorrow",
-            "probability_rain": float(probability),
-            "probability_no_rain": float(1 - probability),
-            "inputs_used": {
-                "location": data.location,
-                "date": data.date,
-                "season": season,
-                "year": year,
-                "rain_today": data.rain_today
-            },
-            "model_version": model_version,
-            "model_f1_score": round(model_info['metrics']['f1_score'], 4)
-        }
-
+        result["status"] = "success"
+        return result
+    
     except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Invalid date format. Use YYYY-MM-DD: {str(e)}")
+        raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")
-
+       
 
 # Endpoint Health Check
 @app.get("/health")
