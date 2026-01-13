@@ -247,6 +247,7 @@ def train_model(split_id=None):
             model_uri = f"runs:/{mlflow_run.info.run_id}/model"
 
             print("Registering model in Model Registry.")
+
             model_details = mlflow.register_model(model_uri, MODEL_NAME)
             
             client = MlflowClient()
@@ -257,8 +258,11 @@ def train_model(split_id=None):
                 "train_samples": str(len(X_train)),
             }
 
+            # set all standard tags
             for key, value in tags.items():
                 client.set_model_version_tag(MODEL_NAME, model_details.version, key, value)
+
+            client.set_model_version_tag(MODEL_NAME, model_details.version, "is_production", "False")
             
             print(f"Registered as version {model_details.version}")
 
@@ -272,6 +276,7 @@ def train_model(split_id=None):
                         current_model_version.version,
                         "Archived"
                     )
+                    client.set_model_version_tag(MODEL_NAME, current_model_version.version, "is_production", "False")
                     print(f"Archived old version: {current_model_version.version}")
                 
                 client.transition_model_version_stage(
@@ -279,7 +284,8 @@ def train_model(split_id=None):
                     model_details.version,
                     "Production"
                 )
-                print(f"New production version: {model_details.version}")
+                client.set_model_version_tag(MODEL_NAME, model_details.version, "is_production", "True")
+                print(f"New production version: {model_details.version} (tagged is_production=True)")
             else:
                 print(f"Keeping current production (v{current_model_version.version})")
                 print(f"New model registered as v{model_details.version} but not promoted")
