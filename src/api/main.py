@@ -51,6 +51,7 @@ app = FastAPI(
 
 # MLflow configuration
 MLFLOW_TRACKING_URI = PARAMS['mlflow']['tracking_uri']
+AUTOMATION_EXPERIMENT_NAME = f"{datetime.now().strftime('%Y%m%d_%H%M')}_Automated_Pipeline_WeatherPrediction_Australia"
 MODEL_NAME = "RainTomorrow_XGBoost"
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
@@ -579,8 +580,7 @@ async def process_next_split():
                 
         # STEP 3: Train model
         print(f"\nSTEP 3: Training model on training data split {split_id}.")
-        automation_experiment = f"{datetime.now().strftime('%Y%m%d_%H%M')}_Automated_Pipeline_WeatherPredictionAustralia"
-
+        automation_experiment = AUTOMATION_EXPERIMENT_NAME
 
         train_result = subprocess.run(
             ["python", "src/models/train_model.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
