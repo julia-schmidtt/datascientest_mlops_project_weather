@@ -50,7 +50,6 @@ EXPERIMENT_NAME = PARAMS['mlflow']['experiment_name']
 MODEL_NAME = "RainTomorrow_XGBoost"
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
-mlflow.set_experiment(EXPERIMENT_NAME)
 
 # Load train data
 # Load training and test set for specific split
@@ -111,7 +110,7 @@ def get_current_production_model():
 
 
 # Training function
-def train_model(split_id=None):
+def train_model(split_id=None, experiment_name='WeatherAUS_YearBased_Training'):
     print(f"Training on split {split_id} (MLflow mode)")
 
     # ==================== Step 1: Load Data ====================
@@ -119,6 +118,11 @@ def train_model(split_id=None):
 
     # ==================== Step 2: Get Current Production Model ====================
     current_model_version, current_f1 = get_current_production_model()
+
+    # Set MLflow experiment  
+    mlflow.set_experiment(experiment_name)
+    print(f"Using MLflow experiment: {experiment_name}")
+
 
     if current_model_version:
         print(f"Current Production Model:")
@@ -316,9 +320,16 @@ def main():
     parser.add_argument(
         "--split_id",
         type=int,
-        default=None,
+        required=True,
         help="Split ID to train on (1-9)."
     )
+
+    parser.add_argument(
+        '--experiment_name', 
+        type=str, 
+        default='WeatherAUS_YearBased_Training',
+        help='MLflow experiment name')
+
     args = parser.parse_args()
     
     if args.split_id and not (1 <= args.split_id <= 9):
@@ -326,7 +337,7 @@ def main():
         sys.exit(1)
 
     try:
-        f1, promoted = train_model(split_id=args.split_id)
+        f1, promoted = train_model(split_id=args.split_id, experiment_name=args.experiment_name )
         
         print('Training complete.')
         print(f"F1 Score: {f1:.4f}")

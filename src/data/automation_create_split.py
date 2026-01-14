@@ -17,6 +17,11 @@ import pandas as pd
 import yaml
 from pathlib import Path
 import sys
+from datetime import datetime
+
+
+# Generate unique experiment name for automation runs
+AUTOMATION_EXPERIMENT_NAME = f"Automated_Pipeline_WeatherPredictionAustralia_{datetime.now().strftime('%Y%m%d_%H%M')}"
 
 
 # Function to create year based split from preprocessed training data

@@ -297,7 +297,7 @@ async def train(split_id: int):
             ["python", "src/models/train_model.py", "--split_id", str(split_id)],
             capture_output=True,
             text=True,
-            timeout=300  # 5 minutes timeout
+            timeout=300  
         )
         
         if result.returncode != 0:
@@ -579,8 +579,11 @@ async def process_next_split():
                 
         # STEP 3: Train model
         print(f"\nSTEP 3: Training model on training data split {split_id}.")
+        automation_experiment = f"{datetime.now().strftime('%Y%m%d_%H%M')}_Automated_Pipeline_WeatherPredictionAustralia"
+
+
         train_result = subprocess.run(
-            ["python", "src/models/train_model.py", "--split_id", str(split_id)],
+            ["python", "src/models/train_model.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
             capture_output=True,
             text=True,
             timeout=600
