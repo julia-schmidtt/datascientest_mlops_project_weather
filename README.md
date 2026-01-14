@@ -1,5 +1,5 @@
 # Rain Prediction in Australia - MLOps Project
-==============================
+----------
 
 This project implements a MLOps pipeline for rain prediction in Australia, including:
 - Data versioning with DVC
@@ -75,9 +75,9 @@ nano .env
 
 Add your DagsHub credentials:
 ```env
-DAGSHUB_USERNAME=your-username
+DAGSHUB_USERNAME=julia-schmidtt
 DAGSHUB_TOKEN=your-token
-MLFLOW_TRACKING_URI=https://dagshub.com/your-username/datascientest_mlops_project_weather.mlflow
+MLFLOW_TRACKING_URI=https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 ```
 
 **Get your DagsHub token:** DagsHub → Settings → Tokens 

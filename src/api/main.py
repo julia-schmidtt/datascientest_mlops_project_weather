@@ -67,27 +67,31 @@ validation_data = None
 # Load defaults and scaler
 def load_defaults():
     """Load default values and scaler"""
+
+    print("--------------------")
+    print("\033[1mLoading defaults, scaler and validation data:\033[0m")
     global defaults, scaler, validation_data
     
     try:
         # Load defaults
         with open('src/api/defaults.json', 'r') as f:
             defaults = json.load(f)
-        print("Defaults loaded.")
+        print("\n- Defaults loaded to fill missing fields in input data.")
         
         # Load scaler
         with open('models/scaler.pkl', 'rb') as f:
             scaler = pickle.load(f)
-        print("Scaler loaded.")
+        print("\n- Scaler loaded to scale input data before model prediction.")
         
         # Load validation data
         with open('src/api/validation_data.json', 'r') as f:
             validation_data = json.load(f)
-        print("Validation data loaded.")
+        print("\n- Validation data loaded to check input data for location and season.\n")
+        print("--------------------")
         
         return True
     except Exception as e:
-        print(f"Warning loading defaults/scaler: {e}")
+        print(f"\n\033[1mWarning loading defaults/scaler: {e}\033[0m")
         return False
 
 
@@ -99,12 +103,13 @@ def load_production_model():
     try:
         client = MlflowClient()
         
+        print("--------------------")
         # Get production model
         versions = client.search_model_versions(f"name='{MODEL_NAME}'")
         prod_versions = [v for v in versions if v.current_stage == "Production"]
         
         if not prod_versions:
-            print("No production model found in MLflow.")
+            print("\n\033[1mNo production model found in MLflow.\033[0m")
             return False
         
         # Get latest production version
@@ -136,19 +141,23 @@ def load_production_model():
                 "train_samples": run.data.params.get("train_samples_original")
             }
         }
-        
-        print(f"Loaded production model: Version {model_version}")
-        print(f"F1 Score: {model_info['metrics']['f1_score']:.4f}")
-        print(f"Accuracy: {model_info['metrics']['accuracy']:.4f}")
-        print(f"Precision: {model_info['metrics']['precision']:.4f}")
-        print(f"Recall: {model_info['metrics']['recall']:.4f}")
-        print(f"ROC-AUC: {model_info['metrics']['roc_auc']:.4f}")
-        print(f"Trained on: {model_info['params']['years']}")
-        
+
+        print("\n\033[1mLoading production model:\033[0m")
+        print(f"\n- Loaded production model: Version {model_version}")
+        print(f"\n- F1 Score: {model_info['metrics']['f1_score']:.4f}")
+        print(f"\n- Accuracy: {model_info['metrics']['accuracy']:.4f}")
+        print(f"\n- Precision: {model_info['metrics']['precision']:.4f}")
+        print(f"\n- Recall: {model_info['metrics']['recall']:.4f}")
+        print(f"\n- ROC-AUC: {model_info['metrics']['roc_auc']:.4f}")
+        print(f"\n- Trained on: {model_info['params']['years']} data")
+        print(f"\n- Split ID: {model_info['params']['split_id']}")
+        print(f"\n- Number of training samples: {model_info['params']['train_samples']}")
+        print("--------------------")
+
         return True
         
     except Exception as e:
-        print(f"Error loading production model: {e}")
+        print(f"\n\033[1mError loading production model: {e}\033[0m")
         return False
 
 
@@ -156,13 +165,17 @@ def load_production_model():
 @app.on_event("startup")
 async def startup_event():
     """Load production model on API startup"""
-    print("STARTING RAIN PREDICTION API")
+    print("\n\033[1m==============================\033[0m")
+    print("\n\033[1mSTARTING RAIN PREDICTION API\033[0m")
+    print("\n\033[1m==============================\033[0m")
+
 
     load_defaults()    
+
     success = load_production_model()
     
     if not success:
-        print("API started without model. Use /model/refresh to load.")
+        print("\n\033[1mAPI started without model. Use /model/refresh to load.\033[0m")
     
 
 # Input schema for predictions
@@ -219,45 +232,42 @@ class SimplePredictionInput(BaseModel):
         
         # 1. Validate rain_today (only 0 or 1)
         if self.rain_today not in [0, 1]:
-            raise ValueError(f"rain_today must be 0 (No) or 1 (Yes), got {self.rain_today}")
+            raise ValueError(f"\n\033[1mrain_today must be 0 (No) or 1 (Yes), got {self.rain_today}\033[0m")
         
         # 2. Validate rainfall (not negative)
         if self.rainfall is not None and self.rainfall < 0:
-            raise ValueError(f"rainfall cannot be negative, got {self.rainfall}")
+            raise ValueError(f"\n\033[1mrainfall cannot be negative, got {self.rainfall}\033[0m")
         
         # 3. Validate min_temp < max_temp
         if self.min_temp >= self.max_temp:
-            raise ValueError(
-                f"min_temp ({self.min_temp}) must be less than max_temp ({self.max_temp})"
-            )
+            raise ValueError( f"\n\033[1mmin_temp ({self.min_temp}) must be less than max_temp ({self.max_temp})\033[0m")
         
         # 4. Validate wind directions
         if self.wind_gust_dir and self.wind_gust_dir not in valid_wind_dirs:
-            raise ValueError(
-                f"wind_gust_dir must be one of {valid_wind_dirs}, got '{self.wind_gust_dir}'"
-            )
+            raise ValueError(f"\n\033[1mwind_gust_dir must be one of {valid_wind_dirs}, got '{self.wind_gust_dir}'\033[0m")
+
         if self.wind_dir_9am and self.wind_dir_9am not in valid_wind_dirs:
-            raise ValueError(
-                f"wind_dir_9am must be one of {valid_wind_dirs}, got '{self.wind_dir_9am}'"
-            )
+            raise ValueError(f"\n\033[1mwind_dir_9am must be one of {valid_wind_dirs}, got '{self.wind_dir_9am}'\033[0m")
+
         if self.wind_dir_3pm and self.wind_dir_3pm not in valid_wind_dirs:
-            raise ValueError(
-                f"wind_dir_3pm must be one of {valid_wind_dirs}, got '{self.wind_dir_3pm}'"
-            )
+            raise ValueError(f"\n\033[1mwind_dir_3pm must be one of {valid_wind_dirs}, got '{self.wind_dir_3pm}'\033[0m")
         
         # 5. Validate humidity (0-100%)
         if self.humidity_9am is not None and not (0 <= self.humidity_9am <= 100):
-            raise ValueError(f"humidity_9am must be between 0-100, got {self.humidity_9am}")
+            raise ValueError(f"\n\033[1mhumidity_9am must be between 0-100, got {self.humidity_9am}\033[0m")
+
         if self.humidity_3pm is not None and not (0 <= self.humidity_3pm <= 100):
-            raise ValueError(f"humidity_3pm must be between 0-100, got {self.humidity_3pm}")
+            raise ValueError(f"\n\033[1mhumidity_3pm must be between 0-100, got {self.humidity_3pm}\033[0m")
         
         # 6. Validate wind speed (not negative)
         if self.wind_gust_speed is not None and self.wind_gust_speed < 0:
-            raise ValueError(f"wind_gust_speed cannot be negative, got {self.wind_gust_speed}")
+            raise ValueError(f"\n\033[1mwind_gust_speed cannot be negative, got {self.wind_gust_speed}\033[0m")
+
         if self.wind_speed_9am is not None and self.wind_speed_9am < 0:
-            raise ValueError(f"wind_speed_9am cannot be negative, got {self.wind_speed_9am}")
+            raise ValueError(f"\n\033[1mwind_speed_9am cannot be negative, got {self.wind_speed_9am}\033[0m")
+
         if self.wind_speed_3pm is not None and self.wind_speed_3pm < 0:
-            raise ValueError(f"wind_speed_3pm cannot be negative, got {self.wind_speed_3pm}")
+            raise ValueError(f"\n\033[1mwind_speed_3pm cannot be negative, got {self.wind_speed_3pm}\033[0m")
 
 
 # Endpoint 1: Train model
@@ -269,11 +279,14 @@ async def train(split_id: int):
     This triggers the training script. If the new model is better than the current production model,
     it will automatically be promoted to production and reload in API.
     """
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mTrain Endpoint:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     if not (1 <= split_id <= 9):
         raise HTTPException(
             status_code=400,
-            detail="split_id must be between 1 and 9"
-        )
+            detail="split_id must be between 1 and 9")
     
     try:
         print(f"Triggering training for split {split_id}.")
@@ -320,6 +333,10 @@ async def predict(data: Dict[str, Any]):
     Input: Dictionary with all required 110 features
     Output: Prediction (0=No Rain, 1=Rain) with probability
     """
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mFull Prediction Endpoint (110 features input):\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     if model is None:
         raise HTTPException(
             status_code=503,
@@ -363,6 +380,10 @@ async def predict_simple(data: SimplePredictionInput):
     Required: location, date, min_temp, max_temp, rain_today
     Optional: All other weather features (wind, humidity, pressure, etc.)
     """
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mSimple Prediction Endpoint (5 input features needed):\033[0m")
+    print("\n\033[1m--------------------\033[0m")
 
     if model is None or scaler is None or defaults is None:
         raise HTTPException(
@@ -426,6 +447,11 @@ async def predict_simple(data: SimplePredictionInput):
 @app.get("/health")
 async def health():
     """Health check"""
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mHealth Check Endpoint:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     return {
         "status": "healthy",
         "model_loaded": model is not None,
@@ -440,6 +466,11 @@ async def health():
 @app.get("/")
 async def root():
     """API information"""
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mAPI Info Endpoint:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     return {
         "name": "Rain Prediction API",
         "description": "Predict rain in Australia using production MLflow model",
@@ -464,6 +495,11 @@ async def root():
 @app.get("/model/info")
 async def get_model_info():
     """Get current production model information"""
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mModel Info Endpoint:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     if model is None:
         raise HTTPException(
             status_code=503,
@@ -480,6 +516,11 @@ async def get_model_info():
 @app.post("/model/refresh")
 async def refresh_model():
     """Refresh/reload the production model from MLflow"""
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mModel Reload Endpoint:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
     print("Refreshing production model from MLflow.")
     
     load_defaults() 
