@@ -221,6 +221,23 @@ curl -X POST http://localhost:8000/pipeline/next-split
 7. Reload production model in API
 
 **Output directory for generated training data split:** `data/automated_splits/`
+
+## Archive all models in MLflow Model Registry
+- e.g. before start new ML pipeline and training all training data splits without production model at the beginning
+
+```bash
+python scripts/archive_all_models.py
+```
+
+## Delete data in data/automated_splits to start with split 1 training
+```bash
+rm -rf data/automated_splits/split_*
+rm -f data/automated_splits/metadata.yaml
+ls -la data/automated_splits/
+```
+- only .gitignore should be in data/automated_splits after data removal
+
+## Complete automation with cronjob
 ----------
 
 ### XGBoost hyperparameters
