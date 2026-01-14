@@ -253,6 +253,14 @@ https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 - Artifacts (model, confusion matrix, classification report)
 - Tags (`is_production`, `split_id`, `years`)
 
+
+## Archive all models in MLflow Model Registry
+- e.g. before start new ML pipeline and training all training data splits without production model at the beginning
+
+```bash
+python scripts/archive_all_models.py
+```
+
 ----------
 
 
