@@ -6,6 +6,7 @@ Endpoints:
 - POST /train: Train new model
 - POST /predict: Make predictions with production model (110 input features needed, use e.g. tests/test_api_prediction.py to extract single sample from test set)
 - POST /predict/simple: Simplified prediction with production model (not 110 input features needed, missing features will be filled)
+- POST /pipeline/next-split: Automated pipeline (create split, track, train, promote)
 - GET  /health: Health check
 - GET  /model/info: Get current production model info
 - POST /model/refresh: Reload production model
@@ -442,6 +443,185 @@ async def predict_simple(data: SimplePredictionInput):
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")
        
+
+# Endpoint 4: Automated Pipeline - Process Next Split
+@app.post("/pipeline/next-split")
+async def process_next_split():
+    """
+    Complete automated pipeline: Create next split, track with DVC, train, compare, promote.
+    
+    Workflow:
+    1. Create next temporal split (incrementally adds one year)
+    2. Track with DVC (git + dvc push)
+    3. Train model on new split
+    4. Track with MLflow
+    5. Compare with production model
+    6. Auto-promote if better performance (F1 score)
+    7. Reload production model in API
+    """
+
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mAutomated Pipeline:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
+
+    try:
+
+        # STEP 1: Create next training data split
+        print("\nSTEP 1: Creating next training data split.")
+        create_result = subprocess.run(
+            ["python", "src/data/automation_create_split.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if create_result.returncode != 0:
+            # Check if all splits complete
+            if "All splits complete" in create_result.stdout:
+                return {
+                    "status": "info",
+                    "message": "All temporal splits already created.",
+                    "suggestion": "No more splits to process. Data accumulation simulation complete."
+                }
+
+            raise Exception(f"Training data split creation failed: {create_result.stderr}")
+
+        # Extract split_id from output
+        output_lines = create_result.stdout.strip().split('\n')
+        split_line = [l for l in output_lines if 'Split' in l and 'created successfully' in l.lower()]
+        if not split_line:
+            raise Exception("Could not determine split_id from output")
+
+        # Parse split_id
+        try:
+            split_id = int(split_line[0].split('Split')[1].split()[0])
+        except (IndexError, ValueError):
+            raise Exception(f"Could not parse split_id from: {split_line[0]}")
+        
+        print(f"Split {split_id} created")
+        print(create_result.stdout)
+
+
+        # STEP 2: DVC tracking
+        print("\nSTEP 2: Tracking data with DVC.")
+        
+        # DVC add
+        dvc_add_result = subprocess.run(
+            ["dvc", "add", "data/automated_splits"],
+            capture_output=True,
+            text=True,
+            timeout=60
+        )
+
+        if dvc_add_result.returncode == 0:
+            print("DVC add successful")
+            
+            # Git add .dvc file
+            subprocess.run(
+                ["git", "add", "data/automated_splits.dvc", ".gitignore"],
+                capture_output=True,
+                timeout=30
+            )
+            
+            # Git commit
+            subprocess.run(
+                ["git", "commit", "-m", f"Add automated training split {split_id}"],
+                capture_output=True,
+                timeout=30
+            )
+
+            # Git push to GitHub
+            try:
+                # Get current branch name
+                branch_result = subprocess.run(
+                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+                    capture_output=True,
+                    text=True,
+                    timeout=10
+                )
+                current_branch = branch_result.stdout.strip()
+
+                print(f"Pushing to branch: {current_branch}")
+
+                # Git push to current branch
+                git_push_result = subprocess.run(
+                    ["git", "push", "origin", current_branch],
+                    capture_output=True,
+                    text=True,
+                    timeout=60
+                )
+
+                if git_push_result.returncode == 0:
+                    print("git push successful")
+                    git_push_status = "success"
+                else:
+                    print(f"git push failed: {git_push_result.stderr}")
+                    git_push_status = "failed"
+            except Exception as e:
+                print(f"git push error: {e}")
+                git_push_status = "error"
+
+            
+            # DVC push
+            dvc_push_result = subprocess.run(
+                ["dvc", "push"],
+                capture_output=True,
+                text=True,
+                timeout=300
+            )
+            
+            dvc_status = "success" if dvc_push_result.returncode == 0 else "failed"
+            print(f"DVC push {dvc_status}")
+        else:
+            dvc_status = "failed"
+            print(f"DVC tracking failed")
+                
+        # STEP 3: Train model
+        print(f"\nSTEP 3: Training model on training data split {split_id}.")
+        train_result = subprocess.run(
+            ["python", "src/models/train_model.py", "--split_id", str(split_id)],
+            capture_output=True,
+            text=True,
+            timeout=600
+        )
+
+        if train_result.returncode != 0:
+            raise Exception(f"Training failed: {train_result.stderr}")
+        
+        print("Training completed")
+
+        # STEP 4: Reload production model
+        print("\nSTEP 4: Reloading production model.")
+        load_production_model()
+        print("Production model reloaded")
+
+        print("PIPELINE COMPLETED SUCCESSFULLY")
+        print("------------------")
+
+        return {
+            "status": "success",
+            "message": f"Pipeline completed: Split {split_id} created, tracked, and trained",
+            "split_processed": split_id,
+            "pipeline_steps": {
+                "split_creation": "completed",
+                "dvc_tracking": dvc_status,
+                "git_push": git_push_status,
+                "model_training": "completed",
+                "model_reload": "completed"
+            },
+            "current_production_model": model_info,
+            "outputs": {
+                "split_creation": create_result.stdout,
+                "training": train_result.stdout[-500:]
+            }
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Pipeline timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
+
 
 # Endpoint Health Check
 @app.get("/health")
