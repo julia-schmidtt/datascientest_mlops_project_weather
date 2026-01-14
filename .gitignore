@@ -102,3 +102,6 @@ target/
 
 venv/
 models/*.pkl
+
+# Automated splits (tracked by DVC)
+data/automated_splits/split_*
