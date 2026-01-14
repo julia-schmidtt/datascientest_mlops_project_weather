@@ -1,6 +1,6 @@
 outs:
-- md5: 293d23deb26c98a7f5eacb197d6a2874.dir
-  size: 31680718
-  nfiles: 10
+- md5: dafdf9a15628cc66aff474cdad4aab18.dir
+  size: 12992630
+  nfiles: 6
   hash: md5
   path: automated_splits
