@@ -10,6 +10,7 @@ This project implements a MLOps pipeline for rain prediction in Australia, inclu
 - API with train and predict (full input data of 110 features, simplified input data with 5 required features) endpoints
 - Additional API endpoints: health check, model information, model reload
 - API pipeline endpoint (/pipeline/next-split): create training data split, data tracking with DVC, model training and tracking with MLflow, production model loading
+- cronjob for scheduled automation for simulation of training data evolution over time and new training for each training data step
 
 Project Organization
 ------------
@@ -41,6 +42,11 @@ Project Organization
 │       ├── train_model.py                   # Model training with MLflow
 │       └── predict_model.py                 # Prediction script
 │
+├── scripts/
+│   ├── process_next_split.sh                # Cron job wrapper script
+│   └── archive_all_models.py                # Script to archive all models in registry to start without production model
+│
+├── logs/                                    # Pipeline execution logs
 ├── tests/
 │   └── test_api_prediction.py               # Script for full prediction API endpoint with 110 input features (random sample of test set is extracted and sent to production model for prediction)
 │
@@ -102,7 +108,7 @@ dvc pull
 
 ----------
 
-Usage
+Manual Usage
 ----------
 
 ### Data Preprocessing
@@ -120,11 +126,6 @@ python src/data/preprocess.py
 - `src/api/defaults.json`
 - `src/api/validation_data.json`
 
-
-### Create Temporal Splits
-```bash
-python src/data/training_data_splits_by_year.py
-```
 
 ### Create Temporal Splits
 ```bash
@@ -160,6 +161,10 @@ for i in {1..9}; do
 done
 ```
 
+----------
+API Usage
+----------
+
 ### Start API
 ```bash
 python src/api/main.py
@@ -168,23 +173,23 @@ python src/api/main.py
 API runs on `http://localhost:8000`
 
 ## API Endpoints
-### Health check
+### Health Check Endpoint
 ```bash
 curl http://localhost:8000/health
 ```
 
-### Model Info
+### Model Info Endpoint
 ```bash
 curl http://localhost:8000/model/info
 ```
 
-### Reload Model
+### Reload Model Endpoint
 ```bash
 curl -X POST http://localhost:8000/model/refresh
 ```
 
 ### Prediction
-#### Simplified Prediction (5 required fields)
+#### Simplified Prediction (5 required fields) Endpoint
 ```bash
 curl -X POST http://localhost:8000/predict/simple \
   -H "Content-Type: application/json" \
@@ -197,17 +202,17 @@ curl -X POST http://localhost:8000/predict/simple \
   }'
 ```
 
-#### Full Prediction (110 features)
+#### Full Prediction (110 features) Endpoint
 ```bash
 python tests/test_api_prediction.py
 ```
 
-### Training
+### Training Endpoint
 ```bash
 curl -X POST "http://localhost:8000/train?split_id=1"
 ```
 
-### Automated Pipeline
+### Automated Pipeline Endpoint
 ```bash
 curl -X POST http://localhost:8000/pipeline/next-split
 ```
@@ -222,14 +227,22 @@ curl -X POST http://localhost:8000/pipeline/next-split
 
 **Output directory for generated training data split:** `data/automated_splits/`
 
-## Archive all models in MLflow Model Registry
-- e.g. before start new ML pipeline and training all training data splits without production model at the beginning
+**MLflow experiment naming:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
+----------
+Cron Job Automation
+----------
+
+### Setup for continuous training of all data splits
+
+#### 1. Archive all existing models in MLflow Model Registry
 ```bash
 python scripts/archive_all_models.py
 ```
+Archives all models in MLflow Registry to prepare for clean automation run.
 
-## Delete data in data/automated_splits to start with split 1 training
+
+#### 2. Delete data in data/automated_splits to start with split 1 training
 ```bash
 rm -rf data/automated_splits/split_*
 rm -f data/automated_splits/metadata.yaml
@@ -237,10 +250,45 @@ ls -la data/automated_splits/
 ```
 - only .gitignore should be in data/automated_splits after data removal
 
-## Complete automation with cronjob
+
+#### 3. Configure cronjob
+```bash
+crontab -e
+```
+```bash
+# Every 5 minutes (for demo/testing)
+*/5 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+```
+
+#### 4. Monitor Execution
+```bash
+# List cron jobs
+crontab -l
+
+# View logs (latest first)
+ls -lth logs/
+```
+
+#### 5. Cron Workflow
+```
+Time 00:00: Split 1 created → Model v20 → Production 
+Time 00:05: Split 2 created → Model v21 → Compare → Promote if better
+Time 00:10: Split 3 created → Model v22 → Compare → Promote if better
+...
+Time 00:40: Split 9 created → Model v28 → Compare → Promote if better
+```
+
+Each log file shows complete pipeline execution details including:
+- Split creation info
+- DVC/Git tracking status
+- Model metrics (F1, accuracy, precision, recall, ROC-AUC)
+- Promotion decision
+- Production model version
+
+
 ----------
 
-### XGBoost hyperparameters
+### XGBoost hyperparameters (`params.yaml`)
 
 ```yaml
 max_depth: 9
@@ -271,12 +319,9 @@ https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 - Tags (`is_production`, `split_id`, `years`)
 
 
-## Archive all models in MLflow Model Registry
-- e.g. before start new ML pipeline and training all training data splits without production model at the beginning
-
-```bash
-python scripts/archive_all_models.py
-```
+**Experiment Organization:**
+- **Manual Training:** `WeatherAUS_YearBased_Training`
+- **Automated Pipeline:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
 ----------
 
