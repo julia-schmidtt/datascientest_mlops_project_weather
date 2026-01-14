@@ -9,6 +9,7 @@ This project implements a MLOps pipeline for rain prediction in Australia, inclu
 - Automated model comparison (new vs. production) and automated promotion of better model to production
 - API with train and predict (full input data of 110 features, simplified input data with 5 required features) endpoints
 - Additional API endpoints: health check, model information, model reload
+- API pipeline endpoint (/pipeline/next-split): create training data split, data tracking with DVC, model training and tracking with MLflow, production model loading
 
 Project Organization
 ------------
@@ -18,7 +19,8 @@ Project Organization
 │   ├── raw/                                 # Original raw data (weatherAUS.csv)
 │   ├── interim/                             # Preprocessed data
 │   ├── processed/                           # Train/test splits, filled missing values, One-Hot Encoded, scaled, ready for modeling
-│   └── training_data_splits_by_year/        # Temporal splits of training data (2008, 2008+2009, 2008+2009+2010...), test data always the same
+│   ├── training_data_splits_by_year/        # Temporal splits (manual creation) of training data (2008, 2008+2009, 2008+2009+2010...), test data always the same
+│   └── automated_splits/                    # Automated pipeline splits (DVC tracked)
 │
 ├── models/
 │   ├── scaler.pkl                           # StandardScaler for API, extracted from preprocessing phase
@@ -33,9 +35,11 @@ Project Organization
 │   │   └── __init__.py                      # Parameter management
 │   ├── data/
 │   │   ├── preprocess.py                    # Full data preprocessing: generated data in data/interim, processed and src/api/defaults.json, validation_data.json
-│   │   └── training_data_splits_by_year.py  # Splits processed training data based on year, generates data in data/training_data_splits_by_year
+│   │   ├── training_data_splits_by_year.py  # Splits processed training data based on year (manual), generates data in data/training_data_splits_by_year
+│   │   └── automation_create_split.py       # Automated incremental training data splits
 │   └── models/
-│       └── train_model.py                   # Model training with MLflow
+│       ├── train_model.py                   # Model training with MLflow
+│       └── predict_model.py                 # Prediction script
 │
 ├── tests/
 │   └── test_api_prediction.py               # Script for full prediction API endpoint with 110 input features (random sample of test set is extracted and sent to production model for prediction)
@@ -95,12 +99,6 @@ dvc remote modify origin --local password your-token
 ```bash
 dvc pull
 ```
-
-This downloads:
-- `data/raw/weatherAUS.csv`
-- `data/interim/df_preprocessed.csv`
-- `data/processed/X_train.csv, y_train.csv, X_test.csv, y_test.csv`
-- `data/training_data_splits_by_year/` (9 temporal splits)
 
 ----------
 
@@ -209,6 +207,20 @@ python tests/test_api_prediction.py
 curl -X POST "http://localhost:8000/train?split_id=1"
 ```
 
+### Automated Pipeline
+```bash
+curl -X POST http://localhost:8000/pipeline/next-split
+```
+**Complete workflow:**
+1. Create next temporal split
+2. Track with DVC (`dvc add`, `git commit`, `git push`, `dvc push`)
+3. Train XGBoost model on new split
+4. Log to MLflow (metrics, parameters, artifacts)
+5. Compare F1 score with production model
+6. Auto-promote if better
+7. Reload production model in API
+
+**Output directory for generated training data split:** `data/automated_splits/`
 ----------
 
 ### XGBoost hyperparameters
@@ -242,15 +254,6 @@ https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 - Tags (`is_production`, `split_id`, `years`)
 
 ----------
-
-## Workflow Summary
-```
-1. Data → DVC versioning
-2. Preprocess → Raw data preprocessing, remove and fill missing value after splitting in train and test set to prevent data leakage, scaler, defaults
-3. Train → MLflow tracking, auto-promotion
-4. API → Serve production model
-5. Predict → Simplified or full endpoint
-```
 
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
