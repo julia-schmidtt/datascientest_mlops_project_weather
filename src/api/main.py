@@ -234,42 +234,42 @@ class SimplePredictionInput(BaseModel):
         
         # 1. Validate rain_today (only 0 or 1)
         if self.rain_today not in [0, 1]:
-            raise ValueError(f"\n\033[1mrain_today must be 0 (No) or 1 (Yes), got {self.rain_today}\033[0m")
+            raise ValueError(f"rain_today must be 0 (No) or 1 (Yes), got {self.rain_today}")
         
         # 2. Validate rainfall (not negative)
         if self.rainfall is not None and self.rainfall < 0:
-            raise ValueError(f"\n\033[1mrainfall cannot be negative, got {self.rainfall}\033[0m")
+            raise ValueError(f"rainfall cannot be negative, got {self.rainfall}")
         
         # 3. Validate min_temp < max_temp
         if self.min_temp >= self.max_temp:
-            raise ValueError( f"\n\033[1mmin_temp ({self.min_temp}) must be less than max_temp ({self.max_temp})\033[0m")
+            raise ValueError( f"min_temp ({self.min_temp}) must be less than max_temp ({self.max_temp})")
         
         # 4. Validate wind directions
         if self.wind_gust_dir and self.wind_gust_dir not in valid_wind_dirs:
-            raise ValueError(f"\n\033[1mwind_gust_dir must be one of {valid_wind_dirs}, got '{self.wind_gust_dir}'\033[0m")
+            raise ValueError(f"wind_gust_dir must be one of {valid_wind_dirs}, got '{self.wind_gust_dir}'")
 
         if self.wind_dir_9am and self.wind_dir_9am not in valid_wind_dirs:
-            raise ValueError(f"\n\033[1mwind_dir_9am must be one of {valid_wind_dirs}, got '{self.wind_dir_9am}'\033[0m")
+            raise ValueError(f"wind_dir_9am must be one of {valid_wind_dirs}, got '{self.wind_dir_9am}'")
 
         if self.wind_dir_3pm and self.wind_dir_3pm not in valid_wind_dirs:
-            raise ValueError(f"\n\033[1mwind_dir_3pm must be one of {valid_wind_dirs}, got '{self.wind_dir_3pm}'\033[0m")
+            raise ValueError(f"wind_dir_3pm must be one of {valid_wind_dirs}, got '{self.wind_dir_3pm}'")
         
         # 5. Validate humidity (0-100%)
         if self.humidity_9am is not None and not (0 <= self.humidity_9am <= 100):
-            raise ValueError(f"\n\033[1mhumidity_9am must be between 0-100, got {self.humidity_9am}\033[0m")
+            raise ValueError(f"humidity_9am must be between 0-100, got {self.humidity_9am}")
 
         if self.humidity_3pm is not None and not (0 <= self.humidity_3pm <= 100):
-            raise ValueError(f"\n\033[1mhumidity_3pm must be between 0-100, got {self.humidity_3pm}\033[0m")
+            raise ValueError(f"humidity_3pm must be between 0-100, got {self.humidity_3pm}")
         
         # 6. Validate wind speed (not negative)
         if self.wind_gust_speed is not None and self.wind_gust_speed < 0:
-            raise ValueError(f"\n\033[1mwind_gust_speed cannot be negative, got {self.wind_gust_speed}\033[0m")
+            raise ValueError(f"wind_gust_speed cannot be negative, got {self.wind_gust_speed}")
 
         if self.wind_speed_9am is not None and self.wind_speed_9am < 0:
-            raise ValueError(f"\n\033[1mwind_speed_9am cannot be negative, got {self.wind_speed_9am}\033[0m")
+            raise ValueError(f"wind_speed_9am cannot be negative, got {self.wind_speed_9am}")
 
         if self.wind_speed_3pm is not None and self.wind_speed_3pm < 0:
-            raise ValueError(f"\n\033[1mwind_speed_3pm cannot be negative, got {self.wind_speed_3pm}\033[0m")
+            raise ValueError(f"wind_speed_3pm cannot be negative, got {self.wind_speed_3pm}")
 
 
 # Endpoint 1: Train model
@@ -716,9 +716,15 @@ async def refresh_model():
             "model": model_info
         }
     else:
+        # Clear cached model on failure
+        global model, model_version, model_info
+        model = None
+        model_version = None
+        model_info = {}
+
         raise HTTPException(
             status_code=500,
-            detail="Failed to load production model from MLflow"
+            detail="Failed to load production model from MLflow. All models may be archived or no model has been trained yet."
         )
 
 
