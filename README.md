@@ -209,6 +209,53 @@ for i in {1..9}; do
 done
 ```
 
+
+----------
+DVC Pipeline
+----------
+
+### Run Complete Pipeline
+
+Execute the entire ML pipeline with dependency tracking:
+```bash
+dvc repro
+```
+
+**This runs:**
+1. `preprocess` - Generate processed data from raw data
+2. `create_splits` - Create 9 temporal training splits
+3. `train_split_1` - Train model on first split
+
+**DVC automatically:**
+- Tracks dependencies (code, data, params)
+- Caches outputs
+- Skips unchanged stages
+- Ensures reproducibility
+
+### Visualize Pipeline
+```bash
+# Show dependency graph
+dvc dag
+
+# Check pipeline status
+dvc status
+
+# View pipeline definition
+cat dvc.yaml
+```
+
+### Re-run Specific Stage
+```bash
+# Only run preprocessing
+dvc repro preprocess
+
+# Force re-run (ignore cache)
+dvc repro --force
+```
+
+**Note:** The DVC pipeline covers manual workflow. For automated continuous training, use the API pipeline endpoint `/pipeline/next-split` with cron jobs.
+
+
 ----------
 API Usage
 ----------
