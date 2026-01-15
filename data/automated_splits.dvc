@@ -1,6 +1,6 @@
 outs:
-- md5: d8ac369739d5341b161795f41e52da58.dir
-  size: 160339382
-  nfiles: 26
+- md5: 760b5c0867a69f7d46c455009071ac6c.dir
+  size: 206490124
+  nfiles: 30
   hash: md5
   path: automated_splits
