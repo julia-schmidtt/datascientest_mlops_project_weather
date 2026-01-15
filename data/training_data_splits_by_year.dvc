@@ -1,6 +1,0 @@
-outs:
-- md5: 2a251d05f13facc65ab581d8fe0126a3.dir
-  size: 316565387
-  nfiles: 37
-  hash: md5
-  path: training_data_splits_by_year

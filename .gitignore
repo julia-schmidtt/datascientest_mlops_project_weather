@@ -109,3 +109,5 @@ data/automated_splits/split_*
 
 # Logs
 logs/*.log
+src/api/defaults.json
+src/api/validation_data.json

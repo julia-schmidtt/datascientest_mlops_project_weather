@@ -1,0 +1,33 @@
+stages:
+  preprocess:
+    cmd: python src/data/preprocess.py
+    deps:
+      - data/raw/weatherAUS.csv
+      - src/data/preprocess.py
+    outs:
+      - data/interim/df_preprocessed.csv
+      - data/processed/X_train.csv
+      - data/processed/y_train.csv
+      - data/processed/X_test.csv
+      - data/processed/y_test.csv
+      - models/scaler.pkl
+      - src/api/defaults.json
+      - src/api/validation_data.json
+
+  create_splits:
+    cmd: python src/data/training_data_splits_by_year.py
+    deps:
+      - data/processed/X_train.csv
+      - data/processed/y_train.csv
+      - src/data/training_data_splits_by_year.py
+    outs:
+      - data/training_data_splits_by_year
+
+  train_split_1:
+    cmd: python src/models/train_model.py --split_id 1
+    deps:
+      - data/training_data_splits_by_year/split_01_2008
+      - src/models/train_model.py
+      - params.yaml
+    outs:
+      - models/xgboost_model_split_01.pkl

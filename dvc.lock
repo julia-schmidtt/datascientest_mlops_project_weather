@@ -1,0 +1,88 @@
+schema: '2.0'
+stages:
+  preprocess:
+    cmd: python src/data/preprocess.py
+    deps:
+    - path: data/raw/weatherAUS.csv
+      hash: md5
+      md5: a65cf8b8719b1a65db4f361eeec18457
+      size: 14094055
+    - path: src/data/preprocess.py
+      hash: md5
+      md5: 597c39d82843adafde3c7cd6acd12aed
+      size: 9652
+    outs:
+    - path: data/interim/df_preprocessed.csv
+      hash: md5
+      md5: 59748fdd2b86623a74710ae8fcf84309
+      size: 13394376
+    - path: data/processed/X_test.csv
+      hash: md5
+      md5: 0d7e868688a0307790ec298941e2303e
+      size: 12258927
+    - path: data/processed/X_train.csv
+      hash: md5
+      md5: ca3274696d404a3ee780ee2fa03b6cf3
+      size: 49032036
+    - path: data/processed/y_test.csv
+      hash: md5
+      md5: 1ebd79af77dcc0f9eb918480651ce62e
+      size: 56329
+    - path: data/processed/y_train.csv
+      hash: md5
+      md5: 826d2047409c652609b1b79ad5b14091
+      size: 225271
+    - path: models/scaler.pkl
+      hash: md5
+      md5: 240203b6cfae48d54eb585b9e235b947
+      size: 977
+    - path: src/api/defaults.json
+      hash: md5
+      md5: 22a189f5c8f9c1ee8be8c88f0cca7e3e
+      size: 409
+    - path: src/api/validation_data.json
+      hash: md5
+      md5: 27e3da4b011f38a75801393cadfc5188
+      size: 914
+  create_splits:
+    cmd: python src/data/training_data_splits_by_year.py
+    deps:
+    - path: data/processed/X_train.csv
+      hash: md5
+      md5: ca3274696d404a3ee780ee2fa03b6cf3
+      size: 49032036
+    - path: data/processed/y_train.csv
+      hash: md5
+      md5: 826d2047409c652609b1b79ad5b14091
+      size: 225271
+    - path: src/data/training_data_splits_by_year.py
+      hash: md5
+      md5: 88451c743bbd6dc053ea9af9abe12518
+      size: 6823
+    outs:
+    - path: data/training_data_splits_by_year
+      hash: md5
+      md5: 2a251d05f13facc65ab581d8fe0126a3.dir
+      size: 316565387
+      nfiles: 37
+  train_split_1:
+    cmd: python src/models/train_model.py --split_id 1
+    deps:
+    - path: data/training_data_splits_by_year/split_01_2008
+      hash: md5
+      md5: 266d5a4ae1885aa1f1fb3ab38b4597f1.dir
+      size: 12992224
+      nfiles: 4
+    - path: params.yaml
+      hash: md5
+      md5: 204ec452a2e1fe81ea936f0a226970a0
+      size: 1006
+    - path: src/models/train_model.py
+      hash: md5
+      md5: ce4a04667de0e755644d476bea576063
+      size: 13022
+    outs:
+    - path: models/xgboost_model_split_01.pkl
+      hash: md5
+      md5: 445ba3af40c02ccd6fd833f6f3f699fa
+      size: 585299
