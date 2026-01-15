@@ -700,6 +700,8 @@ async def get_model_info():
 async def refresh_model():
     """Refresh/reload the production model from MLflow"""
 
+    global model, model_version, model_info
+
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mModel Reload Endpoint:\033[0m")
     print("\n\033[1m--------------------\033[0m")
@@ -717,7 +719,6 @@ async def refresh_model():
         }
     else:
         # Clear cached model on failure
-        global model, model_version, model_info
         model = None
         model_version = None
         model_info = {}
