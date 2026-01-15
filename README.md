@@ -102,8 +102,56 @@ dvc remote modify origin --local password your-token
 ```
 
 ### 6. Pull Data from DVC
+**Option A: Minimal pull (only raw data)**
+
+Pull only raw data and generate everything else locally:
+```bash
+# Pull only raw data
+dvc pull data/raw/weatherAUS.csv.dvc
+
+# Generate all preprocessing outputs
+python src/data/preprocess.py
+
+# Generate manually training splits
+python src/data/training_data_splits_by_year.py
+```
+
+
+**Option B: Full pull**
+
+Pull all tracked data from dvc.
 ```bash
 dvc pull
+```
+
+**This downloads:**
+- Raw data: data/raw/weatherAUS.csv
+- Preprocessed data: data/interim/df_preprocessed.csv
+- Preprocessed training/test splits (ready for modeling with full dataset): data/processed/X_train, y_train, X_test, y_test
+- Manual temporal splits (9 year-based splits): data/training_data_splits_by_year/split_01_2008, split_02_2008-2009, ...
+- Automatically created temporal splits during execution of automated ML pipeline: data/automated_splits/split_01_2008, ...
+
+
+**IMPORTANT:** 
+- Some files must be generated locally even after `dvc pull`:
+```bash
+# Generate scaler, defaults, and validation data
+python src/data/preprocess.py
+```
+**This creates:**
+- `models/scaler.pkl` - Required for input for  API predictions
+- `src/api/defaults.json` - Default values for missing features in input for API predictions
+- `src/api/validation_data.json` - Valid locations and seasons to check input for API prediction
+
+
+- If you want to use the automated API endpoint from start to end  (pipeline/next-split) you have to remove pulled data in data/automated_splits/
+```bash
+# Remove old automation splits
+rm -rf data/automated_splits/split_*
+rm -f data/automated_splits/metadata.yaml
+
+# Verify
+ls -la data/automated_splits/  # Should only show .gitkeep
 ```
 
 ----------
@@ -113,7 +161,7 @@ Manual Usage
 
 ### Data Preprocessing
 
-If you want to reprocess from scratch: put raw weatherAUS.csv in data/raw, then:
+If you want to reprocess from scratch: pull raw weatherAUS.csv from dvc (Pull Data from DVC - Option A), then:
 
 ```bash
 python src/data/preprocess.py
@@ -175,17 +223,17 @@ API runs on `http://localhost:8000`
 ## API Endpoints
 ### Health Check Endpoint
 ```bash
-curl http://localhost:8000/health
+curl http://localhost:8000/health | python -m json.tool
 ```
 
 ### Model Info Endpoint
 ```bash
-curl http://localhost:8000/model/info
+curl http://localhost:8000/model/info | python -m json.tool
 ```
 
 ### Reload Model Endpoint
 ```bash
-curl -X POST http://localhost:8000/model/refresh
+curl -X POST http://localhost:8000/model/refresh | python -m json.tool
 ```
 
 ### Prediction
@@ -199,7 +247,7 @@ curl -X POST http://localhost:8000/predict/simple \
     "min_temp": 18.0,
     "max_temp": 28.0,
     "rain_today": 0
-  }'
+  }' | python -m json.tool
 ```
 
 #### Full Prediction (110 features) Endpoint
@@ -209,12 +257,12 @@ python tests/test_api_prediction.py
 
 ### Training Endpoint
 ```bash
-curl -X POST "http://localhost:8000/train?split_id=1"
+curl -X POST "http://localhost:8000/train?split_id=1" | python -m json.tool
 ```
 
 ### Automated Pipeline Endpoint
 ```bash
-curl -X POST http://localhost:8000/pipeline/next-split
+curl -X POST http://localhost:8000/pipeline/next-split | python -m json.tool
 ```
 **Complete workflow:**
 1. Create next temporal split
@@ -235,12 +283,15 @@ Cron Job Automation
 
 ### Setup for continuous training of all data splits
 
-#### 1. Archive all existing models in MLflow Model Registry
+#### 1. Archive all existing models in MLflow Model Registry and restart API
 ```bash
 python scripts/archive_all_models.py
 ```
 Archives all models in MLflow Registry to prepare for clean automation run.
 
+```bash
+python src/api/main.py
+```
 
 #### 2. Delete data in data/automated_splits to start with split 1 training
 ```bash
@@ -252,12 +303,22 @@ ls -la data/automated_splits/
 
 
 #### 3. Configure cronjob
+
+**IMPORTANT:** Use absolute paths! Replace with your actual project directory.
+
+**Find your absolute path:**
+```bash
+cd /path/to/your/project
+pwd  # Copy this output
+```
+
+**Configure cron:**
 ```bash
 crontab -e
 ```
 ```bash
-# Every 5 minutes (for demo/testing)
-*/5 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+# E.g. every 3 minutes 
+*/3 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
 ```
 
 #### 4. Monitor Execution
@@ -319,9 +380,27 @@ https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 - Tags (`is_production`, `split_id`, `years`)
 
 
-**Experiment Organization:**
-- **Manual Training:** `WeatherAUS_YearBased_Training`
-- **Automated Pipeline:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+### Experiment Organization
+
+**Manual Training:**
+- Experiment: `WeatherAUS_YearBased_Training`
+- Used when calling `/train` API endpoint directly
+- All manual training runs grouped in this experiment
+
+**Automated Pipeline:**
+- Experiment: `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+- **Important:** Experiment name is generated **once at API startup**
+- All splits from one automation run are grouped in the same experiment
+- Example: API started at 10:30 → Experiment `20260115_1030_Automated_Pipeline_...`
+  - Split 1, 2, 3, ..., 9 all logged to this experiment
+
+**To start a new experiment run:**
+1. Stop API (`Ctrl+C`)
+2. Clean automated splits: `rm -rf data/automated_splits/split_*`
+3. Restart API: `python src/api/main.py`
+4. New experiment created with current timestamp
+
+This design keeps all splits from one automation run together for easy comparison and tracking.
 
 ----------
 
