@@ -10,6 +10,7 @@ This project implements a MLOps pipeline for rain prediction in Australia, inclu
 - API with train and predict (full input data of 110 features, simplified input data with 5 required features) endpoints
 - Additional API endpoints: health check, model information, model reload
 - API pipeline endpoint (/pipeline/next-split): create training data split, data tracking with DVC, model training and tracking with MLflow, production model loading
+- API pipeline endpoint(/pipeline/next-split-drift-detection): automated pipeline with drift monitoring (create split, track, drift check, conditional training)
 - cronjob for scheduled automation for simulation of training data evolution over time and new training for each training data step
 
 Project Organization
@@ -17,41 +18,47 @@ Project Organization
 
 ```
 ├── data/
-│   ├── raw/                                 # Original raw data (weatherAUS.csv)
-│   ├── interim/                             # Preprocessed data
-│   ├── processed/                           # Train/test splits, filled missing values, One-Hot Encoded, scaled, ready for modeling
-│   ├── training_data_splits_by_year/        # Temporal splits (manual creation) of training data (2008, 2008+2009, 2008+2009+2010...), test data always the same
-│   └── automated_splits/                    # Automated pipeline splits (DVC tracked)
+│   ├── raw/                                        # Original raw data (weatherAUS.csv)
+│   ├── interim/                                    # Preprocessed data
+│   ├── processed/                                  # Train/test splits, filled missing values, One-Hot Encoded, scaled, ready for modeling
+│   ├── training_data_splits_by_year/               # Temporal splits (manual creation) of training data (2008, 2008+2009, 2008+2009+2010...), test data always the same
+│   └── automated_splits/                           # Automated pipeline splits (DVC tracked)
 │
 ├── models/
-│   ├── scaler.pkl                           # StandardScaler for API, extracted from preprocessing phase
-│   └── xgboost_model_split_XX.pkl           # Trained models (not committed)
+│   ├── scaler.pkl                                  # StandardScaler for API, extracted from preprocessing phase
+│   └── xgboost_model_split_XX.pkl                  # Trained models (not committed)
+│
+├── monitoring/
+│   └── reports/                                    # Evidently drift detection HTML reports
 │
 ├── src/
 │   ├── api/
-│   │   ├── main.py                          # FastAPI application
-│   │   ├── defaults.json                    # Training defaults for filling missing API inputs in simplied prediction endpoint, extracted from preprocessing phase
-│   │   └── validation_data.json             # Locations & seasons for API input validation, extracted from preprocessing phase
+│   │   ├── main.py                                 # FastAPI application
+│   │   ├── defaults.json                           # Training defaults for filling missing API inputs in simplied prediction endpoint, extracted from preprocessing phase
+│   │   └── validation_data.json                    # Locations & seasons for API input validation, extracted from preprocessing phase
 │   ├── config/
-│   │   └── __init__.py                      # Parameter management
+│   │   └── __init__.py                             # Parameter management
 │   ├── data/
-│   │   ├── preprocess.py                    # Full data preprocessing: generated data in data/interim, processed and src/api/defaults.json, validation_data.json
-│   │   ├── training_data_splits_by_year.py  # Splits processed training data based on year (manual), generates data in data/training_data_splits_by_year
-│   │   └── automation_create_split.py       # Automated incremental training data splits
+│   │   ├── preprocess.py                           # Full data preprocessing: generated data in data/interim, processed and src/api/defaults.json, validation_data.json
+│   │   ├── training_data_splits_by_year.py         # Splits processed training data based on year (manual), generates data in data/training_data_splits_by_year
+│   │   └── automation_create_split.py              # Automated incremental training data splits
+│   ├── monitoring/
+│   │   └── data_drift.py                           # Data drift detection (Evidently)
 │   └── models/
-│       ├── train_model.py                   # Model training with MLflow
-│       └── predict_model.py                 # Prediction script
+│       ├── train_model.py                          # Model training with MLflow
+│       └── predict_model.py                        # Prediction script
 │
 ├── scripts/
-│   ├── process_next_split.sh                # Cron job wrapper script
-│   └── archive_all_models.py                # Script to archive all models in registry to start without production model
+│   ├── process_next_split.sh                       # Cron job wrapper script
+│   ├── process_next_split_with_drift_detection.sh  # Cron job wrapper script (with drift detection)
+│   └── archive_all_models.py                       # Script to archive all models in registry to start without production model
 │
-├── logs/                                    # Pipeline execution logs
+├── logs/                                           # Pipeline execution logs
 ├── tests/
-│   └── test_api_prediction.py               # Script for full prediction API endpoint with 110 input features (random sample of test set is extracted and sent to production model for prediction)
+│   └── test_api_prediction.py                      # Script for full prediction API endpoint with 110 input features (random sample of test set is extracted and sent to production model for prediction)
 │
-├── params.yaml                              # Configuration parameters
-├── requirements.txt                         # Python dependencies
+├── params.yaml                                     # Configuration parameters
+├── requirements.txt                                # Python dependencies
 └── README.md                 
 ```
 
@@ -324,6 +331,35 @@ curl -X POST http://localhost:8000/pipeline/next-split | python -m json.tool
 
 **MLflow experiment naming:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
+
+### Automated Pipeline with Drift Detection Endpoint
+```bash
+curl -X POST http://localhost:8000/pipeline/next-split-drift-detection | python -m json.tool
+```
+**Complete workflow:**
+1. Create next temporal split
+2. Track with DVC (`dvc add`, `git commit`, `git push`, `dvc push`)
+3. **Data Drift Check:** Compare new split with production model's training data
+4. **Conditional Training:**
+   - If drift > threshold: Train new model, compare, promote if better
+   - If drift < threshold: Skip training to save resources
+5. Log to MLflow (metrics, parameters, drift reports)
+6. Reload production model in API
+
+**Drift Configuration (`params.yaml`):**
+```yaml
+monitoring:
+  drift_check_enabled: true
+  drift_threshold: 0.10  # change this parameter for threshold adjustment
+```
+
+**Drift Reports:** Saved to `monitoring/reports/`
+
+**Output directory for generated training data split:** `data/automated_splits/`
+
+**MLflow experiment naming:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+
+
 ----------
 Cron Job Automation
 ----------
@@ -363,9 +399,17 @@ pwd  # Copy this output
 ```bash
 crontab -e
 ```
+
+**Option A: Pipeline WITHOUT Drift Detection (trains every split)**
 ```bash
-# E.g. every 3 minutes 
-*/3 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+# E.g. every 2 minutes 
+*/2 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+```
+
+**Option B: Pipeline WITH Drift Detection (conditional training)**
+```bash
+# E.g. every 2 minutes 
+*/2 * * * * /path/to/scripts/process_next_split_with_drift_detection.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
 ```
 
 #### 4. Monitor Execution
@@ -378,6 +422,7 @@ ls -lth logs/
 ```
 
 #### 5. Cron Workflow
+**Option A**
 ```
 Time 00:00: Split 1 created → Model v20 → Production 
 Time 00:05: Split 2 created → Model v21 → Compare → Promote if better
@@ -394,6 +439,12 @@ Each log file shows complete pipeline execution details including:
 - Production model version
 
 
+**Option B**
+```
+Time 00:00: Split 1 created → Model v20 → Production 
+Time 00:05: Split 2 created → Data Drift checked → If Data Drift above threshold → Model v21 → Compare performance with production model → Promote if better
+...
+```
 ----------
 
 ### XGBoost hyperparameters (`params.yaml`)
@@ -413,6 +464,11 @@ min_child_weight: 3
 
 **After SMOTE:** 50% No Rain, 50% Rain
 
+### Data Drift Monitoring
+
+- Uses **Evidently** for data drift detection
+- Compares new training split against production model's training data
+- Training triggered only if drift percentage exceeds threshold
 
 ## MLflow Integration
 All experiments are tracked on **DagsHub MLflow**:

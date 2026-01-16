@@ -111,3 +111,10 @@ data/automated_splits/split_*
 logs/*.log
 src/api/defaults.json
 src/api/validation_data.json
+
+
+# Monitoring reports
+monitoring/reports/*
+
+# MLflow
+mlruns/

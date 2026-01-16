@@ -43,3 +43,10 @@ mlflow:
 features:
   target: RainTomorrow
   drop_cols: []
+
+# Monitoring  Drift Configuration
+monitoring:
+  drift_threshold: 0.02  # Trigger training if >2% columns drifted
+  drift_check_enabled: true
+  drift_report_save: true
+  alert_on_drift: true

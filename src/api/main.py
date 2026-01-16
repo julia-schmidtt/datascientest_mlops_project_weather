@@ -626,6 +626,267 @@ async def process_next_split():
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
 
 
+# Endpoint 5: Automated Pipeline Process Next Split with Drift Monitoring
+@app.post("/pipeline/next-split-drift-detection")
+async def process_next_split_with_drift_monitoring():
+    """
+    Automated pipeline with drift-triggered training.
+    
+    Workflow:
+    1. Create next temporal split
+    2. Track with DVC (add, commit, push)
+    3. Check for data drift vs production model's training data
+    4. If drift > threshold: Train new model (compare performance of new model with performance of production model)
+    5. If no drift: Skip training 
+    """
+    print("\n\033[1m--------------------\033[0m")     
+    print("\n\033[1mAutomated Pipeline with Drift Detection:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
+
+    try:
+
+        # STEP 1: Create next training data split
+        print("\nSTEP 1: Creating next training data split.")
+        result = subprocess.run(
+            ["python", "src/data/automation_create_split.py"],
+            capture_output=True,
+            text=True,
+            timeout=120
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Split creation failed: {result.stderr}"
+            )
+        
+        split_output = result.stdout
+        print(split_output)
+
+        # Extract split_id from output
+        import re
+        match = re.search(r'Split (\d+) created', split_output)
+        if not match:
+            raise HTTPException(
+                status_code=500,
+                detail="Could not determine split_id from output"
+            )
+        
+        split_id = int(match.group(1))
+        print(f"Split {split_id} created")
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=504,
+            detail="Split creation timed out"
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error creating split: {str(e)}"
+        )
+
+    # STEP 2: DVC Tracking
+    print("STEP 2: Tracking data with DVC")
+    
+    try:
+        split_dir = f"data/automated_splits/split_{split_id:02d}_*"
+        import glob
+        split_path = glob.glob(split_dir)[0]
+        
+        # DVC add
+        subprocess.run(["dvc", "add", split_path], check=True)
+        print("DVC add successful")
+        
+        # Git add, commit, push
+        current_branch = subprocess.run(
+            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            capture_output=True,
+            text=True,
+            check=True
+        ).stdout.strip()
+        
+        subprocess.run([
+            "git", "add",
+            f"{split_path}.dvc",
+            "data/automated_splits/.gitignore",
+            "data/automated_splits/metadata.yaml"
+        ], check=True)
+        
+        subprocess.run([
+            "git", "commit", "-m",
+            f"Add automated training split {split_id}"
+        ], check=True)
+        
+        print(f"Pushing to branch: {current_branch}")
+        subprocess.run(["git", "push", "origin", current_branch], check=True)
+        print("git push successful")
+        
+        # DVC push
+        subprocess.run(["dvc", "push"], check=True)
+        print("DVC push success")
+        
+    except subprocess.CalledProcessError as e:
+        print(f"Warning: DVC/Git tracking failed: {e}")
+
+    # STEP 3: DRIFT CHECK
+    print("STEP 3: Data Drift Monitoring")
+    
+    # Load monitoring config
+    import yaml
+    with open('params.yaml', 'r') as f:
+        params = yaml.safe_load(f)
+        drift_config = params.get('monitoring', {})
+        drift_threshold = drift_config.get('drift_threshold', 0.10)
+        drift_enabled = drift_config.get('drift_check_enabled', True)
+    
+    drift_result = None
+    skip_training = False
+    
+    if split_id == 1:
+        print("\nFirst split - no drift check needed (no reference)")
+        print("Proceeding to training.")
+    elif not drift_enabled:
+        print("\nDrift check disabled in config")
+        print("Proceeding to training.")
+    else:
+        try:
+            from src.monitoring.data_drift import DataDriftMonitor
+            
+            monitor = DataDriftMonitor()
+            drift_result = monitor.check_drift_for_split(split_id, save_report=True)
+            
+            drift_percentage = drift_result['share_of_drifted_columns']
+            
+            print(f"\nDrift Analysis:")
+            print(f"  Reference: Production Model (Split {drift_result['reference_split']})")
+            print(f"  Current: Split {split_id}")
+            print(f"  Drifted Columns: {drift_result['number_of_drifted_columns']}/110 ({drift_percentage*100:.1f}%)")
+            print(f"  Threshold: {drift_threshold*100:.1f}%")
+            print(f"  Dataset Drift: {drift_result['dataset_drift']}")
+            
+            if drift_percentage < drift_threshold:
+                # NO SIGNIFICANT DRIFT - SKIP TRAINING
+                print(f"\nDECISION: Drift below threshold")
+                print(f" SKIPPING TRAINING (save resources)")
+                skip_training = True
+            else:
+                # DRIFT DETECTED - CONTINUE TO TRAINING
+                print(f"\nDECISION: Drift above threshold")
+                print(f" PROCEEDING TO TRAINING")
+                print(f"\n  Alert Level: {drift_result['alert']['severity']}")
+                print(f"  Message: {drift_result['alert']['message']}")
+                print(f"  Recommendation: {drift_result['alert']['recommendation']}")
+                
+        except Exception as e:
+            print(f"\nrift check failed: {e}")
+            print("  Proceeding to training anyway (failsafe)...")
+    
+    # Return early if skipping training
+    if skip_training:
+        return {
+            "status": "skipped",
+            "reason": "no_significant_drift",
+            "message": f"Drift below threshold ({drift_threshold*100:.0f}%), training skipped to save resources",
+            "split_processed": split_id,
+            "drift_check": {
+                "enabled": True,
+                "drift_detected": drift_result['dataset_drift'],
+                "drift_percentage": f"{drift_result['share_of_drifted_columns']*100:.1f}%",
+                "threshold": f"{drift_threshold*100:.1f}%",
+                "drifted_columns": drift_result['number_of_drifted_columns'],
+                "reference_split": drift_result['reference_split'],
+                "alert": drift_result['alert']
+            },
+            "pipeline_steps": {
+                "split_creation": "completed",
+                "dvc_tracking": "completed",
+                "drift_check": "passed_no_significant_drift",
+                "model_training": "skipped",
+                "model_reload": "skipped"
+            }
+        }
+    
+    # STEP 4: Training
+    print(f"STEP 4: Training model on split {split_id}")
+    
+    try:
+        automation_experiment = AUTOMATION_EXPERIMENT_NAME
+        result = subprocess.run(
+            ["python", "src/models/train_model.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
+            capture_output=True,
+            text=True,
+            timeout=300
+        )
+        
+        if result.returncode != 0:
+            raise HTTPException(
+                status_code=500,
+                detail=f"Training failed: {result.stderr}"
+            )
+        
+        training_output = result.stdout
+        print(training_output)
+        print("Training completed")
+        
+    except subprocess.TimeoutExpired:
+        raise HTTPException(
+            status_code=504,
+            detail="Training timed out"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error during training: {str(e)}"
+        )
+    
+    # STEP 5: Model Reload
+    print("STEP 5: Reloading production model")
+    
+    load_defaults()
+    success = load_production_model()
+    
+    if success:
+        print("Production model reloaded")
+    else:
+        print("Warning: Could not reload production model")
+    
+    print("\n" + "="*60)
+    print("DRIFT-BASED PIPELINE COMPLETED SUCCESSFULLY")
+    print("="*60)
+    
+    # Return detailed response
+    response = {
+        "status": "success",
+        "message": f"Drift-detection pipeline completed: Split {split_id} created, drift detected, model trained",
+        "split_processed": split_id,
+        "drift_check": {
+            "enabled": True,
+            "drift_detected": drift_result['dataset_drift'] if drift_result else None,
+            "drift_percentage": f"{drift_result['share_of_drifted_columns']*100:.1f}%" if drift_result else "N/A",
+            "threshold": f"{drift_threshold*100:.1f}%",
+            "drifted_columns": drift_result['number_of_drifted_columns'] if drift_result else None,
+            "reference_split": drift_result['reference_split'] if drift_result else None,
+            "alert": drift_result['alert'] if drift_result else None
+        },
+        "pipeline_steps": {
+            "split_creation": "completed",
+            "dvc_tracking": "completed",
+            "drift_check": "drift_detected_training_triggered" if drift_result else "skipped_first_split",
+            "model_training": "completed",
+            "model_reload": "completed"
+        },
+        "current_production_model": model_info,
+        "outputs": {
+            "split_creation": split_output,
+            "training": training_output
+        }
+    }
+    
+    return response
+
 # Endpoint Health Check
 @app.get("/health")
 async def health():
