@@ -9,6 +9,8 @@ from mlflow.tracking import MlflowClient
 from dotenv import load_dotenv
 import os
 import sys
+from datetime import datetime
+
 
 # Load credentials
 load_dotenv()
@@ -35,23 +37,64 @@ try:
         sys.exit(0)
     
     # Archive all
-    print("\nArchiving all versions...")
+    print("\nProcessing versions...")
     print("-" * 60)
+    
+    archived_count = 0
+    skipped_count = 0
     
     for v in versions:
         current_stage = v.current_stage if v.current_stage else "None"
-        print(f"Version {v.version:2s}: {current_stage:12s} → Archived")
+
+        # Check if already archived
+        if current_stage == "Archived":
+            print(f"Version {v.version:2s}: Already archived - skipping")
+            skipped_count += 1
+            continue
+        
+        # Archive 
+        print(f"Version {v.version:2s}: {current_stage:12s} → Archived (tags added in MLflow)")
+        
         
         client.transition_model_version_stage(
             name=MODEL_NAME,
             version=v.version,
             stage="Archived"
         )
+
+        # Add archived tag
+        client.set_model_version_tag(
+            name=MODEL_NAME,
+            version=v.version,
+            key="archived",
+            value="true"
+        )
+        
+        # Add timestamp tag
+        client.set_model_version_tag(
+            name=MODEL_NAME,
+            version=v.version,
+            key="archived_at",
+            value=datetime.now().isoformat()
+
+        )
+
+        archived_count += 1
     
     print("-" * 60)
-    print(f"\nSuccessfully archived {len(versions)} model versions!")
+    print(f"  Total versions: {len(versions)}")
+    print(f"  Newly archived: {archived_count}")
+    print(f"  Already archived: {skipped_count}")
+
+    if archived_count > 0:
+        print(f"\nSuccessfully archived {archived_count} model version(s)!")
+    else:
+        print(f"\nNo models needed archiving - all already archived")
+
     print("="*60 + "\n")
     
+
+
 except Exception as e:
     print(f"\nError: {e}\n")
     sys.exit(1)
