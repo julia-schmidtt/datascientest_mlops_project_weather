@@ -425,10 +425,10 @@ ls -lth logs/
 **Option A**
 ```
 Time 00:00: Split 1 created → Model v20 → Production 
-Time 00:05: Split 2 created → Model v21 → Compare → Promote if better
-Time 00:10: Split 3 created → Model v22 → Compare → Promote if better
+Time 00:02: Split 2 created → Model v21 → Compare → Promote if better
+Time 00:04: Split 3 created → Model v22 → Compare → Promote if better
 ...
-Time 00:40: Split 9 created → Model v28 → Compare → Promote if better
+Time XX:XX  Split 9 created → Model v28 → Compare → Promote if better
 ```
 
 Each log file shows complete pipeline execution details including:
@@ -442,7 +442,7 @@ Each log file shows complete pipeline execution details including:
 **Option B**
 ```
 Time 00:00: Split 1 created → Model v20 → Production 
-Time 00:05: Split 2 created → Data Drift checked → If Data Drift above threshold → Model v21 → Compare performance with production model → Promote if better
+Time 00:02: Split 2 created → Data Drift checked → If Data Drift above threshold → Model v21 → Compare performance with production model → Promote if better
 ...
 ```
 ----------
@@ -464,7 +464,7 @@ min_child_weight: 3
 
 **After SMOTE:** 50% No Rain, 50% Rain
 
-### Data Drift Monitoring
+### Data Drift Monitoring (`params.yaml`)
 
 - Uses **Evidently** for data drift detection
 - Compares new training split against production model's training data
