@@ -1,0 +1,42 @@
+from airflow.operators.python import PythonOperator
+from airflow import DAG
+import requests
+import json
+
+my_dag = DAG(
+    dag_id='process_next_split_with_driftdetection_dag',
+    description='process the next split and perform drift detection',
+    tags=['automation', 'mlops_weather_project'],
+    schedule_interval=None,
+    default_args={
+        'owner': 'airflow',
+        'start_date': days_ago(2),
+    }
+)
+
+# definition of the function to execute
+def call_datadrift_endpoint():
+    url = "http://localhost:8000/process_next_split_with_driftdetection"
+    response = requests.post(url)
+
+    http_status = response.status_code
+    body = response.text
+    if http_status != 200:
+        raise Exception(f"Request failed with status code {http_status}: {response.text}")
+    
+    else:
+        print("Request succeeded.")
+        try:
+            paresed = json.loads(body)
+            print(json.dumps(paresed, indent=2))
+        except Exception as e:
+            print(body)
+
+    return response.text
+
+
+my_task = PythonOperator(
+    task_id='process_next_split_with_driftdetection_dag',
+    python_callable=call_datadrift_endpoint,
+    dag=my_dag
+)
