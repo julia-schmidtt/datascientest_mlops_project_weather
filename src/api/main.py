@@ -15,7 +15,7 @@ Usage:
     python src/api/main.py
 """
 
-from fastapi import FastAPI, HTTPException
+from fastapi import FastAPI, HTTPException, Request, Response
 from pydantic import BaseModel
 import pandas as pd
 import subprocess
@@ -28,7 +28,9 @@ import os
 import sys
 import json
 import pickle
+import time
 from datetime import datetime
+from prometheus_client import Counter, Histogram, generate_latest, CollectorRegistry, Gauge
 
 # Load environment variables
 load_dotenv()
@@ -55,6 +57,31 @@ AUTOMATION_EXPERIMENT_NAME = f"{datetime.now().strftime('%Y%m%d_%H%M')}_Automate
 MODEL_NAME = "RainTomorrow_XGBoost"
 
 mlflow.set_tracking_uri(MLFLOW_TRACKING_URI)
+
+# Prometheus metrics definition
+registry = CollectorRegistry()
+
+api_requests_total = Counter(
+    'api_requests_total',
+    'Total number of API requests',
+    ['endpoint', 'method', 'status_code'],
+    registry=registry
+)
+
+api_request_duration_seconds = Histogram(
+    'api_request_duration_seconds',
+    'Duration of API requests in seconds',
+    ['endpoint', 'method'],
+    buckets=[0.1, 0.2, 0.5, 1, 2, 5, 10],
+    registry=registry
+)
+
+model_accuracy = Gauge("model_accuracy", "Accuracy of the current production model", registry=registry)
+model_f1_score = Gauge("model_f1_score", "F1 Score of the current production model", registry=registry)
+model_precision = Gauge("model_precision", "Precision of the current production model", registry=registry)
+model_recall = Gauge("model_recall", "Recall of the current production model", registry=registry)
+model_roc_auc = Gauge("model_roc_auc", "ROC-AUC of the current production model", registry=registry)
+model_split_id = Gauge("model_split_id", "Training data split ID of the current production model", registry=registry)
 
 
 # Global model variable (loaded on startup and can be refreshed)
@@ -143,6 +170,14 @@ def load_production_model():
                 "train_samples": run.data.params.get("train_samples_original")
             }
         }
+
+        # Update Prometheus gauges
+        model_accuracy.set(model_info['metrics']['accuracy'])
+        model_f1_score.set(model_info['metrics']['f1_score'])
+        model_precision.set(model_info['metrics']['precision'])
+        model_recall.set(model_info['metrics']['recall'])
+        model_roc_auc.set(model_info['metrics']['roc_auc'])
+        model_split_id.set(int(model_info['params']['split_id']))
 
         print("\n\033[1mLoading production model:\033[0m")
         print(f"\n- Loaded production model: Version {model_version}")
@@ -284,7 +319,8 @@ async def train(split_id: int):
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mTrain Endpoint:\033[0m")
     print("\n\033[1m--------------------\033[0m")
-
+    start_time = time.time()
+    status_code = 200
     if not (1 <= split_id <= 9):
         raise HTTPException(
             status_code=400,
@@ -324,6 +360,11 @@ async def train(split_id: int):
             status_code=500,
             detail=str(e)
         )
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        api_request_duration_seconds.labels(endpoint="/train", method="POST").observe(duration)
+        api_requests_total.labels(endpoint="/train", method="POST", status_code=status_code).inc()
 
 
 # Endpoint 2: Make prediction with 110 features as input data
@@ -338,7 +379,8 @@ async def predict(data: Dict[str, Any]):
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mFull Prediction Endpoint (110 features input):\033[0m")
     print("\n\033[1m--------------------\033[0m")
-
+    start_time = time.time()
+    status_code = 200
     if model is None:
         raise HTTPException(
             status_code=503,
@@ -371,6 +413,12 @@ async def predict(data: Dict[str, Any]):
             status_code=400,
             detail=f"Prediction error: {str(e)}"
         )
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        api_request_duration_seconds.labels(endpoint="/predict", method="POST").observe(duration)
+        api_requests_total.labels(endpoint="/predict", method="POST", status_code=status_code).inc()
+
 
 
 # Endpoint 3: Make prediction with simple input (5 features required)
@@ -386,7 +434,8 @@ async def predict_simple(data: SimplePredictionInput):
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mSimple Prediction Endpoint (5 input features needed):\033[0m")
     print("\n\033[1m--------------------\033[0m")
-
+    start_time = time.time()
+    status_code = 200
     if model is None or scaler is None or defaults is None:
         raise HTTPException(
             status_code=503,
@@ -443,7 +492,12 @@ async def predict_simple(data: SimplePredictionInput):
         raise HTTPException(status_code=400, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Prediction error: {str(e)}")
-       
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        api_request_duration_seconds.labels(endpoint="/predict/simple", method="POST").observe(duration)
+        api_requests_total.labels(endpoint="/predict/simple", method="POST", status_code=status_code).inc()
+
 
 # Endpoint 4: Automated Pipeline - Process Next Split
 @app.post("/pipeline/next-split")
@@ -465,6 +519,8 @@ async def process_next_split():
     print("\n\033[1mAutomated Pipeline:\033[0m")
     print("\n\033[1m--------------------\033[0m")
 
+    start_time = time.time()
+    status_code = 200
 
     try:
 
@@ -624,6 +680,11 @@ async def process_next_split():
         raise HTTPException(status_code=504, detail="Pipeline timeout")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        api_request_duration_seconds.labels(endpoint="/pipeline/next-split", method="POST").observe(duration)
+        api_requests_total.labels(endpoint="/pipeline/next-split", method="POST", status_code=status_code).inc()
 
 
 # Endpoint 5: Automated Pipeline Process Next Split with Drift Monitoring
@@ -643,6 +704,8 @@ async def process_next_split_with_drift_monitoring():
     print("\n\033[1mAutomated Pipeline with Drift Detection:\033[0m")
     print("\n\033[1m--------------------\033[0m")
 
+    start_time = time.time()
+    status_code = 200
 
     try:
 
@@ -885,6 +948,13 @@ async def process_next_split_with_drift_monitoring():
         }
     }
     
+    
+    end_time = time.time()
+    duration = end_time - start_time
+    api_request_duration_seconds.labels(endpoint="/pipeline/next-split-drift-detection", method="POST").observe(duration)
+    api_requests_total.labels(endpoint="/pipeline/next-split-drift-detection", method="POST", status_code=status_code).inc()
+
+
     return response
 
 # Endpoint Health Check
@@ -895,6 +965,13 @@ async def health():
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mHealth Check Endpoint:\033[0m")
     print("\n\033[1m--------------------\033[0m")
+
+    start_time = time.time()
+    status_code = 200
+    end_time = time.time()
+    duration = end_time - start_time
+    api_request_duration_seconds.labels(endpoint="/health", method="GET").observe(duration)
+    api_requests_total.labels(endpoint="/health", method="GET", status_code=status_code).inc()
 
     return {
         "status": "healthy",
@@ -914,6 +991,8 @@ async def root():
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mAPI Info Endpoint:\033[0m")
     print("\n\033[1m--------------------\033[0m")
+    status_code = 200
+    api_requests_total.labels(endpoint="/", method="GET", status_code=status_code).inc()
 
     return {
         "name": "Rain Prediction API",
@@ -943,13 +1022,15 @@ async def get_model_info():
     print("\n\033[1m--------------------\033[0m")     
     print("\n\033[1mModel Info Endpoint:\033[0m")
     print("\n\033[1m--------------------\033[0m")
-
+    status_code = 200
     if model is None:
         raise HTTPException(
             status_code=503,
             detail="No model loaded. Use POST /model/refresh to load production model."
         )
-    
+
+    api_requests_total.labels(endpoint="/model/info", method="GET", status_code=status_code).inc()
+
     return {
         "status": "success",
         "model": model_info
@@ -960,7 +1041,8 @@ async def get_model_info():
 @app.post("/model/refresh")
 async def refresh_model():
     """Refresh/reload the production model from MLflow"""
-
+    start_time = time.time()
+    status_code = 200
     global model, model_version, model_info
 
     print("\n\033[1m--------------------\033[0m")     
@@ -971,7 +1053,12 @@ async def refresh_model():
     
     load_defaults() 
     success = load_production_model()
-    
+
+    end_time = time.time()
+    duration = end_time - start_time
+    api_request_duration_seconds.labels(endpoint="/model/refresh", method="POST").observe(duration)
+    api_requests_total.labels(endpoint="/model/refresh", method="POST", status_code=status_code).inc()
+
     if success:
         return {
             "status": "success",
@@ -988,6 +1075,13 @@ async def refresh_model():
             status_code=500,
             detail="Failed to load production model from MLflow. All models may be archived or no model has been trained yet."
         )
+
+@app.get("/metrics")
+async def metrics(request: Request):
+    """
+    Expose Prometheus metrics.
+    """
+    return Response(content=generate_latest(registry), media_type="text/plain")
 
 
 if __name__ == "__main__":

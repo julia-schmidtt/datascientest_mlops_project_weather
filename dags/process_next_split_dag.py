@@ -1,4 +1,5 @@
 from airflow.operators.python import PythonOperator
+from airflow.utils.dates import days_ago
 from airflow import DAG
 import requests
 import json
@@ -10,13 +11,13 @@ my_dag = DAG(
     schedule_interval=None,
     default_args={
         'owner': 'airflow',
-        'start_date': days_ago(2),
+        'start_date': days_ago(0, minute=0),
     }
 )
 
 # definition of the function to execute
 def call_next_split_endpoint():
-    url = "http://localhost:8000/http://localhost:8000/pipeline/next-split"
+    url = "http://fastapi_app:8000/pipeline/next-split"
     response = requests.post(url)
 
     http_status = response.status_code
