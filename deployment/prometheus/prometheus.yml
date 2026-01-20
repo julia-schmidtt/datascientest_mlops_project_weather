@@ -1,0 +1,17 @@
+global:
+  scrape_interval: 15s # Frequency at which Prometheus will scrape metrics
+  evaluation_interval: 15s # Frequency at which alert rules are evaluated
+
+
+scrape_configs:
+  - job_name: 'prometheus' # Job name for Prometheus itself
+    static_configs:
+      - targets: ['localhost:9090'] # Prometheus will monitor itself
+
+  - job_name: 'weather-api' # Job name for the weather API
+    static_configs:
+      - targets: ['fastapi_app:8000'] 
+  
+  - job_name: 'node-exporter' # Job name for Node Exporter
+    static_configs:
+      - targets: ['node-exporter:9100'] # Node Exporter target
