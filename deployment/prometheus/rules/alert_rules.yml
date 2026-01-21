@@ -1,0 +1,37 @@
+groups:
+  - name: model-quality
+    rules:
+      - alert: ModelAccuracyLow
+        expr: model_accuracy < 0.75
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Model accuracy dropped below 75%"
+          description: |
+            The model accuracy is below 75% for more than 5 minutes.
+            Current value: {{ $value }}
+  
+  - name: api-latency
+    rules:
+      - alert: APIEndpointHighLatency
+        expr: |
+          histogram_quantile(
+            0.95,
+            sum by (le, endpoint) (
+              rate(
+                api_request_duration_seconds_bucket{
+                  endpoint=~"/predict|/predict/simple|/model/info|/model/refresh"
+                }[5m]
+              )
+            )
+          ) > 2
+        for: 2m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High latency on API endpoint {{ $labels.endpoint }}"
+          description: |
+            The p95 response time for endpoint {{ $labels.endpoint }}
+            is above 2 seconds for more than 2 minutes.
+            Current p95 latency: {{ $value }} seconds.

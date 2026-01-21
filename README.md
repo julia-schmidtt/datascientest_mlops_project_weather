@@ -264,6 +264,47 @@ dvc repro --force
 
 
 ----------
+Airflow Setup and Usage
+----------
+Add the following to you `.env` file:
+```
+AIRFLOW_UID=1000
+AIRFLOW_GID=0
+```
+Make sure the `/dags`, `/logs` and `/plugins` directorys have the right read and write rights:
+```
+sudo chmod -R 777 logs/
+sudo chmod -R 777 dags/
+sudo chmod -R 777 plugins/
+```
+The Airflow container might take a while to start. After its up and healthy it runs on http://localhost:8080. The credentials are ```airflow``` for username and password. 
+You should see the Dags ```process_next_split_dag``` and ```process_next_split_with_driftdetection_dag``` ready for execution.  
+
+
+----------
+Container Usage
+----------
+For the Container usage use the command ```docker compose up -d --build```. The first startup will take a while. The following Containers will be launched:
+1. weather-fastapi on port 8000
+2. Airflow and depndencies on port 8080
+3. prometheus on port 9090
+4. node-exporter on port 9100
+5. grafana on port 3000
+
+When working on the VM with VsCode it is possible, that you need to forward the ports to your machine to accsess. 
+Shut down the containers after use ```docker compose down```
+**Note:** Airflow is really resource hungry and will crash the normal VMs. Use the oen from the Airflow module. 
+
+----------
+Grafana
+----------
+After the startup of the cotnainer you can accsess via localhost http://localhost:3000. The password and username is admin.
+When the Dashboard is not loaded you can import it on the Dashboard menu. Click new an choose import and drag and drop the Dashboard-json file from the directory /grafana/Dashboards. 
+It can take some time for the metrics to show up and it helps to change the observed period. 
+
+
+
+----------
 API Usage
 ----------
 

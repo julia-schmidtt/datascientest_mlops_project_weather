@@ -243,6 +243,164 @@
     },
     {
       "datasource": {
+        "type": "prometheus",
+        "uid": "ffar78uzc60hsf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "green",
+                  "index": 0
+                },
+                "1": {
+                  "color": "red",
+                  "index": 1
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 9
+      },
+      "id": 9,
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "area",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "none",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ALERTS{alertname=\"APIEndpointHighLatency\", alertstate=\"firing\"}) or vector(0)",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Api-Latency Alert",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "ffar78uzc60hsf"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "fixedColor": "green",
+            "mode": "fixed"
+          },
+          "mappings": [
+            {
+              "options": {
+                "0": {
+                  "color": "red",
+                  "index": 0
+                },
+                "1": {
+                  "color": "green",
+                  "index": 1,
+                  "text": "Model Accurcy < 75%"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 9
+      },
+      "id": 8,
+      "options": {
+        "colorMode": "background_solid",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "percentChangeColorMode": "standard",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "showPercentChange": false,
+        "textMode": "none",
+        "wideLayout": true
+      },
+      "pluginVersion": "12.3.1",
+      "targets": [
+        {
+          "editorMode": "code",
+          "expr": "max(ALERTS{alertname=\"ModelAccuracyLow\", alertstate=\"firing\"}) or vector(1)",
+          "legendFormat": "__auto",
+          "range": true,
+          "refId": "A"
+        }
+      ],
+      "title": "Model Accuracy Alert",
+      "type": "stat"
+    },
+    {
+      "datasource": {
         "uid": "ffar78uzc60hsf"
       },
       "fieldConfig": {
@@ -285,7 +443,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 9
+        "y": 17
       },
       "id": 3,
       "options": {
@@ -415,7 +573,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 23
+        "y": 31
       },
       "id": 5,
       "options": {
@@ -478,7 +636,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 23
+        "y": 31
       },
       "id": 6,
       "options": {
@@ -541,7 +699,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 31
+        "y": 39
       },
       "id": 7,
       "options": {
@@ -580,12 +738,12 @@
     "list": []
   },
   "time": {
-    "from": "2026-01-20T21:59:06.205Z",
-    "to": "2026-01-20T21:59:59.233Z"
+    "from": "now-3h",
+    "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "Mlops Weather Dashboard Copy",
   "uid": "ad6bwnt",
-  "version": 6
+  "version": 13
 }

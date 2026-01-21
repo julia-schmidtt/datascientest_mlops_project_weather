@@ -38,6 +38,7 @@ services:
     volumes:
       - ./src:/app/src
       - ./models:/app/models
+      - ./.dvc:/app/.dvc
       - ./data:/app/data
     restart: unless-stopped
 
@@ -133,6 +134,7 @@ services:
       - "9090:9090"
     volumes:
       - ./deployment/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml
+      - ./deployment/prometheus/rules:/etc/prometheus/rules
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'

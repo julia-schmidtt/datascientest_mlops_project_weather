@@ -665,7 +665,7 @@ async def process_next_split():
             "pipeline_steps": {
                 "split_creation": "completed",
                 "dvc_tracking": dvc_status,
-                "git_push": git_push_status,
+                #"git_push": git_push_status,
                 "model_training": "completed",
                 "model_reload": "completed"
             },
