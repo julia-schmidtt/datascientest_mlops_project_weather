@@ -17,7 +17,7 @@ my_dag = DAG(
 
 # definition of the function to execute
 def call_datadrift_endpoint():
-    url = "http://fastapi:8000/process_next_split_with_driftdetection"
+    url = "http://fastapi:8000/pipeline/next-split-drift-detection"
     response = requests.post(url)
 
     http_status = response.status_code
