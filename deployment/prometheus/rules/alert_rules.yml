@@ -1,15 +1,15 @@
 groups:
   - name: model-quality
     rules:
-      - alert: ModelAccuracyLow
-        expr: model_accuracy < 0.75
-        for: 5m
+      - alert: ModelQualityLow
+        expr: model_f1_score < 0.6
+        for: 5s
         labels:
           severity: warning
         annotations:
-          summary: "Model accuracy dropped below 75%"
+          summary: "Model F1 score dropped below 60%."
           description: |
-            The model accuracy is below 75% for more than 5 minutes.
+            The model F1 score is below 60% for more than 5 seconds.
             Current value: {{ $value }}
   
   - name: api-latency

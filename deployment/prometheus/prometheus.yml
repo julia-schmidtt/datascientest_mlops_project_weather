@@ -1,5 +1,5 @@
 global:
-  scrape_interval: 15s # Frequency at which Prometheus will scrape metrics
+  scrape_interval: 5s # Frequency at which Prometheus will scrape metrics
   evaluation_interval: 15s # Frequency at which alert rules are evaluated
 
 rule_files:
