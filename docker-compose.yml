@@ -36,7 +36,7 @@ services:
     ports:
       - "8000:8000"
     volumes:
-      - ./src:/app/src
+            #- ./src:/app/src
       - ./models:/app/models
       - ./.dvc:/app/.dvc
       - ./data:/app/data
