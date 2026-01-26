@@ -41,18 +41,43 @@ try:
     print("-" * 60)
     
     archived_count = 0
-    skipped_count = 0
+    already_archived_count = 0
     
     for v in versions:
         current_stage = v.current_stage if v.current_stage else "None"
 
         # Check if already archived
         if current_stage == "Archived":
-            print(f"Version {v.version:2s}: Already archived - skipping")
-            skipped_count += 1
+            print(f"Version {v.version:2s}: Already archived - checking tags")
+            already_archived_count += 1
+
+            # Get existing tags
+            existing_tags = v.tags if v.tags else {}
+    
+            # Only set archived tag if it doesn't exist
+            if "archived" not in existing_tags:
+               client.set_model_version_tag(
+                   name=MODEL_NAME,
+                   version=v.version,
+                   key="archived",
+                   value="true"
+               )
+               print('Archived tag added.')
+
+
+            # Only set archived_at if it doesn't exist yet
+            if "archived_at" not in existing_tags:
+                client.set_model_version_tag(
+                    name=MODEL_NAME,
+                    version=v.version,
+                    key="archived_at",
+                    value=datetime.now().isoformat()
+                )
+                print('Archived at tag added.')
+            
             continue
         
-        # Archive 
+        # Archive  models that aren't archived yet
         print(f"Version {v.version:2s}: {current_stage:12s} → Archived (tags added in MLflow)")
         
         
@@ -84,12 +109,13 @@ try:
     print("-" * 60)
     print(f"  Total versions: {len(versions)}")
     print(f"  Newly archived: {archived_count}")
-    print(f"  Already archived: {skipped_count}")
+    print(f"  Already archived: {already_archived_count}")
 
-    if archived_count > 0:
-        print(f"\nSuccessfully archived {archived_count} model version(s)!")
+    total_processed = archived_count + already_archived_count
+    if total_processed > 0:
+        print(f"\nSuccessfully processed {total_processed} model version(s)!")
     else:
-        print(f"\nNo models needed archiving - all already archived")
+        print(f"\nNo models needed processing")
 
     print("="*60 + "\n")
     
