@@ -43,6 +43,20 @@ services:
       - ./tests:/app/tests
     restart: unless-stopped
 
+
+  streamlit:
+    build:
+      context: .
+      dockerfile: Dockerfile.streamlit
+    container_name: streamlit_app
+    ports:
+      - "8501:8501"
+    environment:
+      - API_URL=http://fastapi:8000
+    depends_on:
+      - fastapi
+    restart: unless-stopped
+
   postgres:
     image: postgres:13
     environment:

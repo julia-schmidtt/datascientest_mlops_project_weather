@@ -34,3 +34,4 @@ python-dotenv==1.0.1
 # Monitoring
 evidently==0.4.34
 prometheus_client==0.22.1
+
