@@ -318,17 +318,17 @@ API runs on `http://localhost:8000`
 ## API Endpoints
 ### Health Check Endpoint
 ```bash
-curl http://localhost:8000/health | python -m json.tool
+curl http://localhost:8000/health
 ```
 
 ### Model Info Endpoint
 ```bash
-curl http://localhost:8000/model/info | python -m json.tool
+curl http://localhost:8000/model/info
 ```
 
 ### Reload Model Endpoint
 ```bash
-curl -X POST http://localhost:8000/model/refresh | python -m json.tool
+curl -X POST http://localhost:8000/model/refresh
 ```
 
 ### Prediction
@@ -342,7 +342,7 @@ curl -X POST http://localhost:8000/predict/simple \
     "min_temp": 18.0,
     "max_temp": 28.0,
     "rain_today": 0
-  }' | python -m json.tool
+  }'
 ```
 
 #### Full Prediction (110 features) Endpoint
@@ -352,12 +352,12 @@ python tests/test_api_prediction.py
 
 ### Training Endpoint
 ```bash
-curl -X POST "http://localhost:8000/train?split_id=1" | python -m json.tool
+curl -X POST "http://localhost:8000/train?split_id=1"
 ```
 
 ### Automated Pipeline Endpoint
 ```bash
-curl -X POST http://localhost:8000/pipeline/next-split | python -m json.tool
+curl -X POST http://localhost:8000/pipeline/next-split
 ```
 **Complete workflow:**
 1. Create next temporal split
@@ -375,7 +375,7 @@ curl -X POST http://localhost:8000/pipeline/next-split | python -m json.tool
 
 ### Automated Pipeline with Drift Detection Endpoint
 ```bash
-curl -X POST http://localhost:8000/pipeline/next-split-drift-detection | python -m json.tool
+curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
 ```
 **Complete workflow:**
 1. Create next temporal split
