@@ -154,7 +154,7 @@
         },
         "showPercentChange": false,
         "text": {
-          "titleSize": 30
+          "titleSize": "auto"
         },
         "textMode": "auto",
         "wideLayout": true
