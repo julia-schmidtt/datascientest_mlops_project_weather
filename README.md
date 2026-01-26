@@ -295,6 +295,16 @@ When working on the VM with VsCode it is possible, that you need to forward the 
 Shut down the containers after use ```docker compose down```
 **Note:** Airflow is really resource hungry and will crash the normal VMs. Use the oen from the Airflow module. 
 
+**Use full prediction endpoint inside of API Docker container:**
+Enter container:
+```bash
+docker exec -it fastapi_app bash
+```
+Run python script (pick random sample from test data and make prediction with the API prodcution model):
+```bash
+python tests/test_api_prediction.py
+```
+
 ----------
 Grafana
 ----------

@@ -40,6 +40,7 @@ services:
       - ./models:/app/models
       - ./.dvc:/app/.dvc
       - ./data:/app/data
+      - ./tests:/app/tests
     restart: unless-stopped
 
   postgres:
