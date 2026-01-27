@@ -1,105 +1,247 @@
 # Rain Prediction in Australia - MLOps Project
-----------
 
-This project implements a MLOps pipeline for rain prediction in Australia, including:
-- Data versioning with DVC
-- Automated data preprocessing
-- Automated training pipeline with year based training data splits (2008-2016)
-- Experiment tracking with MLflow (XGBoost model is trained on scaled and SMOTE training data)
-- Automated model comparison (new vs. production) and automated promotion of better model to production
-- API with train and predict (full input data of 110 features, simplified input data with 5 required features) endpoints
-- Additional API endpoints: health check, model information, model reload
-- API pipeline endpoint (/pipeline/next-split): create training data split, data tracking with DVC, model training and tracking with MLflow, production model loading
-- API pipeline endpoint(/pipeline/next-split-drift-detection): automated pipeline with drift monitoring (create split, track, drift check, conditional training)
-- cronjob for scheduled automation for simulation of training data evolution over time and new training for each training data step
+This project implements a MLOps pipeline for rain prediction in Australia.
 
-Project Organization
-------------
+---
+
+## Table of Contents
+
+- [Project Organization](#project-organization)
+- [Setup](#setup)
+  - [Option A: Docker Container Setup](#option-a-docker-container-setup)
+  - [Option B: Local Setup](#option-b-local-setup)
+- [API Usage](#api-usage)
+  - [Option A: Docker Container API Usage](#option-a-docker-container-api-usage)
+  - [Option B: Local API Usage](#option-b-local-api-usage)
+- [Additional Information](#additional-information)
+  - [1. XGBoost Hyperparameters](#1-xgboost-hyperparameters-in-paramsyaml)
+  - [2. SMOTE Class Balancing](#2-smote-class-balancing)
+  - [3. Data Drift Monitoring](#3-data-drift-monitoring-paramsyaml)
+  - [4. MLflow Integration](#4-mlflow-integration)
+  - [5. Experiment Organization](#5-experiment-organization-on-mlflow)
+
+---
+---
+
+## Project Organization
 
 ```
+├── dags/
+│   ├── process_next_split_dag.py                     # DAG for API endpoint pipeline/next-split for Airflow
+│   └── process_next_split_with_driftdetection_dag.py # DAG for API endpoint pipeline/next-split-drift-detection for Airflow
+│
 ├── data/
-│   ├── raw/                                        # Original raw data (weatherAUS.csv)
-│   ├── interim/                                    # Preprocessed data
-│   ├── processed/                                  # Train/test splits, filled missing values, One-Hot Encoded, scaled, ready for modeling
-│   ├── training_data_splits_by_year/               # Temporal splits (manual creation) of training data (2008, 2008+2009, 2008+2009+2010...), test data always the same
-│   └── automated_splits/                           # Automated pipeline splits (DVC tracked)
+│   ├── raw/                                          # Original raw data (weatherAUS.csv)
+│   ├── interim/                                      # Preprocessed data
+│   ├── processed/                                    # Train/test splits, filled missing values, One-Hot encoded, scaled, ready for modeling
+│   ├── training_data_splits_by_year/                 # Temporal splits (manual creation) of training data (2008, 2008+2009, 2008+2009+2010...) used by API training endpoint
+│   └── automated_splits/                             # Automated temporal splits of training data, created and used by API pipeline endpoints
+│
+├── deployment/
+│   ├── grafana/
+│   │   ├── dashboards/                               # json for Grafana dashboard which is automatically loaded
+│   │   └── provisioning/                             # Files for automatic loading of Grafana dashboard
+│   └── prometheus/
+│       ├── prometheus.yaml                           # Prometheus implementation 
+│       └── rules                                     # Prometheus alert rules
 │
 ├── models/
-│   ├── scaler.pkl                                  # StandardScaler for API, extracted from preprocessing phase
-│   └── xgboost_model_split_XX.pkl                  # Trained models (not committed)
+│   ├── scaler.pkl                                    # StandardScaler extracted from preprocessing phase for processing API input for prediction endpoints 
+│   └── xgboost_model_split_XX.pkl                    # Trained XGBoost models
 │
 ├── monitoring/
-│   └── reports/                                    # Evidently drift detection HTML reports
+│   └── reports/                                      # Evidently data drift detection HTML reports
 │
 ├── src/
 │   ├── api/
-│   │   ├── main.py                                 # FastAPI application
-│   │   ├── defaults.json                           # Training defaults for filling missing API inputs in simplied prediction endpoint, extracted from preprocessing phase
-│   │   └── validation_data.json                    # Locations & seasons for API input validation, extracted from preprocessing phase
+│   │   ├── main.py                                   # FastAPI application
+│   │   ├── defaults.json                             # Training defaults for filling missing API inputs in simplied prediction endpoint, extracted from preprocessing phase
+│   │   └── validation_data.json                      # Possible locations and seasons for checking API input, extracted from preprocessing phase
 │   ├── config/
-│   │   └── __init__.py                             # Parameter management
+│   │   └── __init__.py                               # Parameter management
 │   ├── data/
-│   │   ├── preprocess.py                           # Full data preprocessing: generated data in data/interim, processed and src/api/defaults.json, validation_data.json
-│   │   ├── training_data_splits_by_year.py         # Splits processed training data based on year (manual), generates data in data/training_data_splits_by_year
-│   │   └── automation_create_split.py              # Automated incremental training data splits
+│   │   ├── preprocess.py                             # Full data preprocessing: generates data in data/interim, processed and src/api/defaults.json, validation_data.json
+│   │   ├── training_data_splits_by_year.py           # Splits processed training data based on year (manual), generates data in data/training_data_splits_by_year
+│   │   └── automation_create_split.py                # Automated incremental training data split creation used by pipeline API endpoints
 │   ├── monitoring/
-│   │   └── data_drift.py                           # Data drift detection (Evidently)
+│   │   └── data_drift.py                             # Data drift detection (Evidently)
 │   └── models/
-│       ├── train_model.py                          # Model training with MLflow
-│       └── predict_model.py                        # Prediction script
+│       ├── train_model.py                            # Model training with MLflow
+│       └── predict_model.py                          # Prediction script
 │
 ├── scripts/
-│   ├── process_next_split.sh                       # Cron job wrapper script
-│   ├── process_next_split_with_drift_detection.sh  # Cron job wrapper script (with drift detection)
-│   └── archive_all_models.py                       # Script to archive all models in registry to start without production model
+│   ├── process_next_split.sh                         # Cron job wrapper script
+│   ├── process_next_split_with_drift_detection.sh    # Cron job wrapper script (with drift detection)
+│   └── archive_all_models.py                         # Script to archive all models in registry to start without production model
 │
-├── logs/                                           # Pipeline execution logs
+├── streamlit-app/ 
+│   ├── images/                                       # Images for Streamlit App
+│   ├── pages/                                        # Pages for Streamlit App
+│   │   ├── page_1.py                                 
+│   │   └── page_2.py                        
+│   ├── tables/                                       # Tables for Streamlit App
+│   ├── requirements.txt                              # Requirements for Streamlit App
+│   └── streamlit-app.py                              # Streamlit App Code
+│
+├── logs/                                             # Pipeline execution logs
+│
 ├── tests/
-│   └── test_api_prediction.py                      # Script for full prediction API endpoint with 110 input features (random sample of test set is extracted and sent to production model for prediction)
+│   └── test_api_prediction.py                        # Script for full prediction API endpoint with 110 input features 
 │
-├── params.yaml                                     # Configuration parameters
-├── requirements.txt                                # Python dependencies
-└── README.md                 
+├── params.yaml                                       # Configuration parameters
+├── requirements.txt                                  # Python dependencies
+├── Dockerfile.api                                    # Dockerfile for API
+├── Dockerfile.streamlit                              # Dockerfile for Streamlit App
+├── docker-compose.yaml                               # docker-compose file
+├── dvc.lock                                          # dvc pipeline                           
+├── dvc.yaml                                          # Description of dvc pipeline     
+└── README.md
 ```
 
-------------
+---
+---
 
-Setup
-------------
-### 1. Clone Repository
+## Setup
+
+>Choose between Docker Container or Local setup based on your needs.
+
+### Option A: Docker Container Setup
+
+#### **Step 1: Clone Repository**
+
 ```bash
 git clone https://github.com/julia-schmidtt/datascientest_mlops_project_weather.git
+
 cd datascientest_mlops_project_weather
 ```
 
-### 2. Create Virtual Environment
-```bash
-python3 -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-```
+#### **Step 2: Configure Environment Variables**
 
-### 3. Install Dependencies
-```bash
-pip install -r requirements.txt
-```
+Create `.env` file in the root of your project:
 
-### 4. Configure DagsHub Credentials
-
-Create `.env` file in project root:
 ```bash
 nano .env
 ```
 
-Add your DagsHub credentials:
+Add the following credentials:
+
+```env
+# Kaggle credentials (raw dataset will be loaded from Kaggle)
+KAGGLE_USERNAME=your-username
+KAGGLE_KEY=your-token
+
+# DagsHub credentials
+DAGSHUB_USERNAME=julia-schmidtt
+DAGSHUB_TOKEN=your-token
+MLFLOW_TRACKING_URI=https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
+
+# Airflow configuration
+AIRFLOW_UID=1000
+AIRFLOW_GID=0
+```
+
+> **Get your Kaggle token:** Kaggle → Settings → API Tokens → Generate New Token
+
+> **Get your DagsHub token:** DagsHub → Settings → Tokens
+
+
+#### **Step 3: Start Docker Containers**
+
+> **IMPORTANT:** Airflow is resource-intensive and will crash normal VMs. Use the VM from the Airflow module for this setup.
+
+Build and start all containers:
+
+```bash
+docker compose up -d --build
+```
+
+The following services will be available:
+
+| Service | Port | URL | Credentials |
+|---------|------|-----|-------------|
+| FastAPI | 8000 | http://localhost:8000 | - |
+| Airflow | 8080 | http://localhost:8080 | `airflow` / `airflow` |
+| Prometheus | 9090 | http://localhost:9090 | - |
+| Node Exporter | 9100 | http://localhost:9100 | - |
+| Grafana | 3000 | http://localhost:3000 | `admin` / `admin` |
+| Streamlit | 8501 | http://localhost:8501 | - |
+
+> **Port Forwarding:** When working on a VM with VSCode, you may need to forward ports to your local machine.
+
+**Airflow Configuration:**
+
+Ensure proper permissions for Airflow directories:
+
+```bash
+sudo chmod -R 777 logs/
+sudo chmod -R 777 dags/
+sudo chmod -R 777 plugins/
+```
+
+You should see the DAGs `process_next_split_dag` and `process_next_split_with_driftdetection_dag` ready for execution at http://localhost:8080.
+
+**Grafana Configuration:**
+
+If the dashboard doesn't load automatically:
+1. Navigate to http://localhost:3000
+2. Click **Dashboards** → **New** → **Import**
+3. Upload the JSON file from `deployment/grafana/dashboards/`
+
+> **Note:** Metrics may take time to appear. Try adjusting the time period if data doesn't show immediately.
+
+#### **Step 4: Stop Docker Containers**
+
+When finished:
+
+```bash
+docker compose down
+```
+
+---
+
+### Option B: Local Setup
+
+#### **Step 1: Clone Repository**
+
+```bash
+git clone https://github.com/julia-schmidtt/datascientest_mlops_project_weather.git
+
+cd datascientest_mlops_project_weather
+```
+
+#### **Step 2: Configure Environment Variables**
+
+Create `.env` file in the root of the project:
+
+```bash
+nano .env
+```
+
+Add DagsHub credentials:
+
 ```env
 DAGSHUB_USERNAME=julia-schmidtt
 DAGSHUB_TOKEN=your-token
 MLFLOW_TRACKING_URI=https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 ```
 
-**Get your DagsHub token:** DagsHub → Settings → Tokens 
+> **Get your DagsHub token:** DagsHub → Settings → Tokens
 
-### 5. Initialize DVC
+#### **Step 3: Create Virtual Environment**
+
+```bash
+python3 -m venv venv
+source venv/bin/activate  # On Windows: venv\Scripts\activate
+```
+
+#### **Step 4: Install Dependencies**
+
+```bash
+pip install -r requirements.txt
+```
+
+#### **Step 5: Initialize DVC**
+
 ```bash
 dvc init
 dvc remote add origin https://dagshub.com/your-username/datascientest_mlops_project_weather.dvc
@@ -108,10 +250,10 @@ dvc remote modify origin --local user your-username
 dvc remote modify origin --local password your-token
 ```
 
-### 6. Pull Data from DVC
-**Option A: Minimal pull (only raw data)**
+#### **Step 6: Generate Data**
 
-Pull only raw data and generate everything else locally:
+Pull raw data and generate all preprocessing outputs locally:
+
 ```bash
 # Pull only raw data
 dvc pull data/raw/weatherAUS.csv.dvc
@@ -119,230 +261,67 @@ dvc pull data/raw/weatherAUS.csv.dvc
 # Generate all preprocessing outputs
 python src/data/preprocess.py
 
-# Generate manually training splits
+# Generate manual training splits
 python src/data/training_data_splits_by_year.py
 ```
 
-
-**Option B: Full pull**
-
-Pull all tracked data from dvc.
-```bash
-dvc pull
-```
-
-**This downloads:**
-- Raw data: data/raw/weatherAUS.csv
-- Preprocessed data: data/interim/df_preprocessed.csv
-- Preprocessed training/test splits (ready for modeling with full dataset): data/processed/X_train, y_train, X_test, y_test
-- Manual temporal splits (9 year-based splits): data/training_data_splits_by_year/split_01_2008, split_02_2008-2009, ...
-- Automatically created temporal splits during execution of automated ML pipeline: data/automated_splits/split_01_2008, ...
-
-
-**IMPORTANT:** 
-- Some files must be generated locally even after `dvc pull`:
-```bash
-# Generate scaler, defaults, and validation data
-python src/data/preprocess.py
-```
 **This creates:**
-- `models/scaler.pkl` - Required for input for  API predictions
-- `src/api/defaults.json` - Default values for missing features in input for API predictions
-- `src/api/validation_data.json` - Valid locations and seasons to check input for API prediction
+- `data/interim/df_preprocessed.csv` - Processed data
+- `data/processed/X_train.csv, X_test.csv, y_train.csv, y_test.csv` - Data ready for modeling
+- `models/scaler.pkl` - Required for API predictions
+- `src/api/defaults.json` - Default values for missing features
+- `src/api/validation_data.json` - Valid locations and seasons
+- `data/training_data_splits_by_year/` - 9 cumulative training splits by year
 
+---
+---
 
-- If you want to use the automated API endpoint from start to end  (pipeline/next-split) you have to remove pulled data in data/automated_splits/
-```bash
-# Remove old automation splits
-rm -rf data/automated_splits/split_*
-rm -f data/automated_splits/metadata.yaml
+## API Usage
 
-# Verify
-ls -la data/automated_splits/  # Should only show .gitkeep
-```
+### Option A: Docker Container API Usage
 
-----------
-
-Manual Usage
-----------
-
-### Data Preprocessing
-
-If you want to reprocess from scratch: pull raw weatherAUS.csv from dvc (Pull Data from DVC - Option A), then:
+View API logs:
 
 ```bash
-python src/data/preprocess.py
+docker compose logs -f fastapi
 ```
 
-**Output:**
-- `data/interim/df_preprocessed.csv`
-- `data/processed/X_train.csv, y_train.csv, X_test.csv, y_test.csv`
-- `models/scaler.pkl`
-- `src/api/defaults.json`
-- `src/api/validation_data.json`
+---
 
+#### **Available API Endpoints**
 
-### Create Temporal Splits
-```bash
-python src/data/training_data_splits_by_year.py
-```
+##### **1. Health Check**
 
-**Output:** 9 cumulative year-based splits in `data/training_data_splits_by_year/`
-- Split 1: 2008
-- Split 2: 2008-2009
-- ...
-- Split 9: 2008-2016
-
-
-### Train Model
-
-Train on a specific split:
-```bash
-python src/models/train_model.py --split_id 1
-```
-
-1. Loads training data splits
-2. SMOTE applied to training data for class balancing
-3. Trains XGBoost model
-4. Performance evaluation on test set
-5. Comparison of performance  with current production model
-6. Automated promotion to production if F1 score of new trained model is better than F1 score of current production model
-7. Logs everything to MLflow/DagsHub
-
-**Train all splits:**
-```bash
-for i in {1..9}; do
-    python src/models/train_model.py --split_id $i
-done
-```
-
-
-----------
-DVC Pipeline
-----------
-
-### Run Complete Pipeline
-
-Execute the entire ML pipeline with dependency tracking:
-```bash
-dvc repro
-```
-
-**This runs:**
-1. `preprocess` - Generate processed data from raw data
-2. `create_splits` - Create 9 temporal training splits
-3. `train_split_1` - Train model on first split
-
-**DVC automatically:**
-- Tracks dependencies (code, data, params)
-- Caches outputs
-- Skips unchanged stages
-- Ensures reproducibility
-
-### Visualize Pipeline
-```bash
-# Show dependency graph
-dvc dag
-
-# Check pipeline status
-dvc status
-
-# View pipeline definition
-cat dvc.yaml
-```
-
-### Re-run Specific Stage
-```bash
-# Only run preprocessing
-dvc repro preprocess
-
-# Force re-run (ignore cache)
-dvc repro --force
-```
-
-**Note:** The DVC pipeline covers manual workflow. For automated continuous training, use the API pipeline endpoint `/pipeline/next-split` with cron jobs.
-
-
-----------
-Airflow Setup and Usage
-----------
-Add the following to you `.env` file:
-```
-AIRFLOW_UID=1000
-AIRFLOW_GID=0
-```
-Make sure the `/dags`, `/logs` and `/plugins` directorys have the right read and write rights:
-```
-sudo chmod -R 777 logs/
-sudo chmod -R 777 dags/
-sudo chmod -R 777 plugins/
-```
-The Airflow container might take a while to start. After its up and healthy it runs on http://localhost:8080. The credentials are ```airflow``` for username and password. 
-You should see the Dags ```process_next_split_dag``` and ```process_next_split_with_driftdetection_dag``` ready for execution.  
-
-
-----------
-Container Usage
-----------
-For the Container usage use the command ```docker compose up -d --build```. The first startup will take a while. The following Containers will be launched:
-1. weather-fastapi on port 8000
-2. Airflow and depndencies on port 8080
-3. prometheus on port 9090
-4. node-exporter on port 9100
-5. grafana on port 3000
-
-When working on the VM with VsCode it is possible, that you need to forward the ports to your machine to accsess. 
-Shut down the containers after use ```docker compose down```
-**Note:** Airflow is really resource hungry and will crash the normal VMs. Use the oen from the Airflow module. 
-
-**Use full prediction endpoint inside of API Docker container:**
-Enter container:
-```bash
-docker exec -it fastapi_app bash
-```
-Run python script (pick random sample from test data and make prediction with the API prodcution model):
-```bash
-python tests/test_api_prediction.py
-```
-
-----------
-Grafana
-----------
-After the startup of the cotnainer you can accsess via localhost http://localhost:3000. The password and username is admin.
-When the Dashboard is not loaded you can import it on the Dashboard menu. Click new an choose import and drag and drop the Dashboard-json file from the directory /grafana/Dashboards. 
-It can take some time for the metrics to show up and it helps to change the observed period. 
-
-
-
-----------
-API Usage
-----------
-
-### Start API
-```bash
-python src/api/main.py
-```
-
-API runs on `http://localhost:8000`
-
-## API Endpoints
-### Health Check Endpoint
 ```bash
 curl http://localhost:8000/health
 ```
 
-### Model Info Endpoint
+##### **2. Model Info**
+
 ```bash
 curl http://localhost:8000/model/info
 ```
 
-### Reload Model Endpoint
+##### **3. Reload Model**
+
 ```bash
 curl -X POST http://localhost:8000/model/refresh
 ```
 
-### Prediction
-#### Simplified Prediction (5 required fields) Endpoint
+##### **4. Training Endpoint**
+
+Train model on specific split (example: split 1):
+
+```bash
+curl -X POST "http://localhost:8000/train?split_id=1"
+```
+
+**MLflow experiment:** `WeatherAUS_YearBased_Training`
+
+##### **5. Simplified Prediction**
+
+Requires only 5 input features:
+
 ```bash
 curl -X POST http://localhost:8000/predict/simple \
   -H "Content-Type: application/json" \
@@ -355,20 +334,270 @@ curl -X POST http://localhost:8000/predict/simple \
   }'
 ```
 
-#### Full Prediction (110 features) Endpoint
+##### **6. Full Prediction**
+
+Requires 110 input features:
+
+> **Execute inside API Docker container**
+
 ```bash
+# Enter container
+docker exec -it fastapi_app bash
+
+# Run prediction test
 python tests/test_api_prediction.py
+
+# Exit container
+exit
 ```
 
-### Training Endpoint
+##### **7. Automated Pipeline**
+
+```bash
+curl -X POST http://localhost:8000/pipeline/next-split
+```
+
+**Complete workflow:**
+1. Create next temporal split
+2. Train XGBoost model on new split
+3. Log to MLflow (metrics, parameters, artifacts)
+4. Compare F1 score with production model
+5. Auto-promote if better
+6. Reload production model in API
+
+**MLflow experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+
+##### **8. Automated Pipeline with Drift Detection**
+
+```bash
+curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
+```
+
+**Complete workflow:**
+1. Create next temporal split
+2. **Data Drift Check:** Compare new split with production model's training data
+3. **Conditional Training:**
+   - If drift > threshold: Train new model, compare, promote if better
+   - If drift < threshold: Skip training to save resources
+4. Log to MLflow (metrics, parameters, drift reports)
+5. Reload production model in API
+
+**MLflow experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+
+---
+
+#### **Cron Job Automation**
+
+Setup for continuous training of all data splits.
+
+##### **Step 1: Restart API Container**
+
+```bash
+docker compose down
+
+docker compose up -d --build
+```
+
+##### **Step 2: Configure Cron Job**
+
+> **IMPORTANT:** Use absolute paths! Replace with your actual project directory.
+
+Find your absolute path:
+
+```bash
+cd /path/to/your/project
+
+pwd  # Copy this output
+```
+
+Edit crontab:
+
+```bash
+crontab -e
+```
+
+**Option a: Pipeline WITHOUT Drift Detection** (trains every split)
+
+```bash
+# Example: every 2 minutes
+*/2 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+```
+
+Execution timeline:
+```
+Time 00:00: Split 1 → Model v20 → Production
+Time 00:02: Split 2 → Model v21 → Compare → Promote if better
+Time 00:04: Split 3 → Model v22 → Compare → Promote if better
+...
+Time XX:XX: Split 9 → Model v28 → Compare → Promote if better
+```
+
+**Option b: Pipeline WITH Drift Detection** (conditional training)
+
+```bash
+# Example: every 2 minutes
+*/2 * * * * /path/to/scripts/process_next_split_with_drift_detection.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
+```
+
+Execution timeline:
+```
+Time 00:00: Split 1 → Model v20 → Production
+Time 00:02: Split 2 → Drift Check → If drift > threshold → Model v21 → Compare → Promote if better
+...
+```
+
+##### **Step 3: Monitor Execution**
+
+```bash
+# List cron jobs
+crontab -l
+
+# View logs (latest first)
+ls -lth logs/
+```
+
+**Log file contents include:**
+- Split creation info
+- Model metrics (F1, accuracy, precision, recall, ROC-AUC)
+- Promotion decision
+- Production model version
+
+---
+
+#### **API Grafana Dashboard**
+
+Find API health dashboard at: `http://localhost:3000`
+
+credentials: admin/admin
+
+- API health status
+- Average Response Time per Endpoint
+- Prometheus Alerts (Prometheus: `http://localhost:8080`)
+- API Request Rate by Endpoint
+- Total API Requests by Endpoint
+- Model Metrics of production model
+- Memory usage
+- Disk usage
+- CPU usage
+
+---
+
+#### **Airflow**
+
+Find Airflow at: `http://localhost:8080`
+
+credentials: airflow/airflow
+
+- important DAGs: ```process_next_split_dag``` and ```process_next_split_with_driftdetection_dag``
+- activate and execute DAGs on Airflow UI
+- schedule DAGs by implementing it in `dags/process_next_split_dag.py, process_next_split_with_driftdetection_dag.py` (make sure DAG is activated on Airflow UI):
+
+```python
+# Change in dags/process_next_split_dag.py
+my_dag = DAG(
+    dag_id='process_next_split_dag',
+    description='process the next split ',
+    tags=['automation', 'mlops_weather_project'],
+    schedule_interval='*/2 * * * *', # every 2 minutes
+    default_args={
+        'owner': 'airflow',
+        'start_date': days_ago(0, minute=0),
+    }
+)
+
+# Change in dags/process_next_split_with_driftdetection_dag.py
+my_dag = DAG(
+    dag_id='process_next_split_with_driftdetection_dag',
+    description='process the next split and perform drift detection',
+    tags=['automation', 'mlops_weather_project'],
+    schedule_interval='*/2 * * * *', # every 2 minutes
+    default_args={
+        'owner': 'airflow',
+        'start_date': days_ago(0, minute=0),
+    }
+)
+
+```
+
+---
+
+#### **Streamlit**
+
+Find Streamlit Application at: `http://localhost:8501`
+
+---
+
+### Option B: Local API Usage
+
+#### **Step 1: Start API**
+
+```bash
+python src/api/main.py
+```
+
+> API runs on `http://localhost:8000`
+
+#### **Step 2: Use API Endpoints**
+
+##### **1. Health Check**
+
+```bash
+curl http://localhost:8000/health
+```
+
+##### **2. Model Info**
+
+```bash
+curl http://localhost:8000/model/info
+```
+
+##### **3. Reload Model**
+
+```bash
+curl -X POST http://localhost:8000/model/refresh
+```
+
+##### **4. Training Endpoint**
+
+Train model on specific split (example: split 1):
+
 ```bash
 curl -X POST "http://localhost:8000/train?split_id=1"
 ```
 
-### Automated Pipeline Endpoint
+**MLflow experiment:** `WeatherAUS_YearBased_Training`
+
+
+##### **5. Simplified Prediction**
+
+Requires only 5 input features:
+
+```bash
+curl -X POST http://localhost:8000/predict/simple \
+  -H "Content-Type: application/json" \
+  -d '{
+    "location": "Sydney",
+    "date": "2025-01-15",
+    "min_temp": 18.0,
+    "max_temp": 28.0,
+    "rain_today": 0
+  }'
+```
+
+##### **6. Full Prediction**
+
+Requires 110 input features:
+
+```bash
+python tests/test_api_prediction.py
+```
+
+##### **7. Automated Pipeline**
+
 ```bash
 curl -X POST http://localhost:8000/pipeline/next-split
 ```
+
 **Complete workflow:**
 1. Create next temporal split
 2. Track with DVC (`dvc add`, `git commit`, `git push`, `dvc push`)
@@ -378,15 +607,15 @@ curl -X POST http://localhost:8000/pipeline/next-split
 6. Auto-promote if better
 7. Reload production model in API
 
-**Output directory for generated training data split:** `data/automated_splits/`
+**Output directory:** `data/automated_splits/`  
+**MLflow experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
-**MLflow experiment naming:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+##### **8. Automated Pipeline with Drift Detection**
 
-
-### Automated Pipeline with Drift Detection Endpoint
 ```bash
 curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
 ```
+
 **Complete workflow:**
 1. Create next temporal split
 2. Track with DVC (`dvc add`, `git commit`, `git push`, `dvc push`)
@@ -397,73 +626,92 @@ curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
 5. Log to MLflow (metrics, parameters, drift reports)
 6. Reload production model in API
 
-**Drift Configuration (`params.yaml`):**
+**Drift Configuration** (`params.yaml`):
+
 ```yaml
 monitoring:
   drift_check_enabled: true
-  drift_threshold: 0.10  # change this parameter for threshold adjustment
+  drift_threshold: 0.10  # Adjust threshold as needed
 ```
 
-**Drift Reports:** Saved to `monitoring/reports/`
+**Drift Reports:** `monitoring/reports/`  
+**Output directory:** `data/automated_splits/`  
+**MLflow experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
-**Output directory for generated training data split:** `data/automated_splits/`
+---
 
-**MLflow experiment naming:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+#### **Cron Job Automation**
 
+##### **Step 1: Prepare Environment**
 
-----------
-Cron Job Automation
-----------
+Archive all existing models and restart API:
 
-### Setup for continuous training of all data splits
-
-#### 1. Archive all existing models in MLflow Model Registry and restart API
 ```bash
 python scripts/archive_all_models.py
-```
-Archives all models in MLflow Registry to prepare for clean automation run.
-
-```bash
 python src/api/main.py
 ```
 
-#### 2. Delete data in data/automated_splits to start with split 1 training
+##### **Step 2: Clean Automated Splits**
+
+Start fresh with split 1:
+
 ```bash
 rm -rf data/automated_splits/split_*
 rm -f data/automated_splits/metadata.yaml
 ls -la data/automated_splits/
 ```
-- only .gitignore should be in data/automated_splits after data removal
 
+> **Expected result:** Only `.gitignore` should remain in `data/automated_splits/`
 
-#### 3. Configure cronjob
+##### **Step 3: Configure Cron Job**
 
-**IMPORTANT:** Use absolute paths! Replace with your actual project directory.
+> **IMPORTANT:** Use absolute paths! Replace with your actual project directory.
 
-**Find your absolute path:**
+Find your absolute path:
+
 ```bash
 cd /path/to/your/project
 pwd  # Copy this output
 ```
 
-**Configure cron:**
+Edit crontab:
+
 ```bash
 crontab -e
 ```
 
-**Option A: Pipeline WITHOUT Drift Detection (trains every split)**
+**Option a: Pipeline WITHOUT Drift Detection** (trains every split)
+
 ```bash
-# E.g. every 2 minutes 
+# Example: every 2 minutes
 */2 * * * * /path/to/scripts/process_next_split.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
 ```
 
-**Option B: Pipeline WITH Drift Detection (conditional training)**
+Execution timeline:
+```
+Time 00:00: Split 1 → Model v20 → Production
+Time 00:02: Split 2 → Model v21 → Compare → Promote if better
+Time 00:04: Split 3 → Model v22 → Compare → Promote if better
+...
+Time XX:XX: Split 9 → Model v28 → Compare → Promote if better
+```
+
+**Option b: Pipeline WITH Drift Detection** (conditional training)
+
 ```bash
-# E.g. every 2 minutes 
+# Example: every 2 minutes
 */2 * * * * /path/to/scripts/process_next_split_with_drift_detection.sh >> /path/to/logs/pipeline_$(date +\%Y\%m\%d_\%H\%M).log 2>&1
 ```
 
-#### 4. Monitor Execution
+Execution timeline:
+```
+Time 00:00: Split 1 → Model v20 → Production
+Time 00:02: Split 2 → Drift Check → If drift > threshold → Model v21 → Compare → Promote if better
+...
+```
+
+##### **Step 4: Monitor Execution**
+
 ```bash
 # List cron jobs
 crontab -l
@@ -472,33 +720,19 @@ crontab -l
 ls -lth logs/
 ```
 
-#### 5. Cron Workflow
-**Option A**
-```
-Time 00:00: Split 1 created → Model v20 → Production 
-Time 00:02: Split 2 created → Model v21 → Compare → Promote if better
-Time 00:04: Split 3 created → Model v22 → Compare → Promote if better
-...
-Time XX:XX  Split 9 created → Model v28 → Compare → Promote if better
-```
-
-Each log file shows complete pipeline execution details including:
+**Log file contents include:**
 - Split creation info
 - DVC/Git tracking status
 - Model metrics (F1, accuracy, precision, recall, ROC-AUC)
 - Promotion decision
 - Production model version
 
+---
+---
 
-**Option B**
-```
-Time 00:00: Split 1 created → Model v20 → Production 
-Time 00:02: Split 2 created → Data Drift checked → If Data Drift above threshold → Model v21 → Compare performance with production model → Promote if better
-...
-```
-----------
+## Additional Information
 
-### XGBoost hyperparameters (`params.yaml`)
+### 1. XGBoost Hyperparameters in `params.yaml`
 
 ```yaml
 max_depth: 9
@@ -510,53 +744,86 @@ gamma: 0.1
 min_child_weight: 3
 ```
 
-### SMOTE class balancing
-**Original distribution:** 78% No Rain, 22% Rain
+---
 
-**After SMOTE:** 50% No Rain, 50% Rain
+### 2. SMOTE Class Balancing
 
-### Data Drift Monitoring (`params.yaml`)
+**Original target distribution:**
+- 78% No Rain
+- 22% Rain
+
+**After SMOTE:**
+- 50% No Rain
+- 50% Rain
+
+---
+
+### 3. Data Drift Monitoring (`params.yaml`)
 
 - Uses **Evidently** for data drift detection
 - Compares new training split against production model's training data
 - Training triggered only if drift percentage exceeds threshold
 
-## MLflow Integration
+**Configuration:**
+
+```yaml
+monitoring:
+  drift_check_enabled: true
+  drift_threshold: 0.10
+```
+
+---
+
+### 4. MLflow Integration
+
 All experiments are tracked on **DagsHub MLflow**:
+
 ```
 https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.mlflow
 ```
 
 **Tracked information:**
-- Parameters (split_id, years, hyperparameters)
-- Metrics (F1, accuracy, precision, recall, ROC-AUC)
-- Artifacts (model, confusion matrix, classification report)
-- Tags (`is_production`, `split_id`, `years`)
+- **Parameters:** split_id, years, hyperparameters
+- **Metrics:** F1, accuracy, precision, recall, ROC-AUC
+- **Artifacts:** model, confusion matrix, classification report
+- **Tags:** `is_production`, `split_id`, `years`, `archived`, `archived_at`
 
+---
 
-### Experiment Organization
+### 5. Experiment Organization on MLflow
 
-**Manual Training:**
-- Experiment: `WeatherAUS_YearBased_Training`
-- Used when calling `/train` API endpoint directly
-- All manual training runs grouped in this experiment
+#### **Manual Training**
 
-**Automated Pipeline:**
-- Experiment: `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+- **Experiment:** `WeatherAUS_YearBased_Training`
+- **Usage:** When calling `/train` API endpoint directly
+- **Purpose:** All manual training runs grouped in this experiment
+
+#### **Automated Pipeline**
+
+- **Experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
+- **Usage:** When calling `/pipeline` API endpoints
 - **Important:** Experiment name is generated **once at API startup**
-- All splits from one automation run are grouped in the same experiment
-- Example: API started at 10:30 → Experiment `20260115_1030_Automated_Pipeline_...`
-  - Split 1, 2, 3, ..., 9 all logged to this experiment
+- **Behavior:** All splits from one automation run are grouped in the same experiment
 
-**To start a new experiment run:**
-1. Stop API (`Ctrl+C`)
-2. Clean automated splits: `rm -rf data/automated_splits/split_*`
-3. Restart API: `python src/api/main.py`
-4. New experiment created with current timestamp
+**Example:**
+```
+API started at 10:30 → Experiment: 20260115_1030_Automated_Pipeline_...
+  ├── Split 1
+  ├── Split 2
+  ├── Split 3
+  └── ... Split 9
+```
 
-This design keeps all splits from one automation run together for easy comparison and tracking.
+#### **Starting a New Experiment**
 
-----------
+To create a new experiment with a fresh timestamp:
 
+1. **Stop API:** Docker container usage: stop API container, local usage: `Ctrl+C`
+2. **Clean splits:** local usage: `rm -rf data/automated_splits/split_*`
+3. **Restart API:** Docker container usage: start API container, local usage:`python src/api/main.py`
+4. **Result:** New experiment created with current timestamp
+
+---
+---
 
 <p><small>Project based on the <a target="_blank" href="https://drivendata.github.io/cookiecutter-data-science/">cookiecutter data science project template</a>. #cookiecutterdatascience</small></p>
