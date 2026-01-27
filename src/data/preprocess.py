@@ -19,7 +19,7 @@ import sys
 from pathlib import Path
 import pickle
 import json
-
+import os
 
 # Import params from config
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
@@ -30,7 +30,13 @@ TEST_SIZE = PARAMS['data']['test_size']
 RANDOM_STATE = PARAMS['data']['random_state']
 
 # Import raw data
-df = pd.read_csv('data/raw/weatherAUS.csv')
+if os.path.exists('/app/data/raw/weatherAUS.csv'):
+    data_path = '/app/data/raw/weatherAUS.csv'
+else:
+    data_path = 'data/raw/weatherAUS.csv'
+
+df = pd.read_csv(data_path)
+
 
 print('Data imported: data/raw/weatherAUS.csv')
 print('Columns present: ', df.columns)
