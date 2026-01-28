@@ -145,6 +145,8 @@ services:
   prometheus:
     image: prom/prometheus:latest
     container_name: prometheus
+    environment:
+      SERVICE_SECRET: my_service-secret
     ports:
       - "9090:9090"
     volumes:
@@ -160,15 +162,16 @@ services:
 
   grafana:
     image: grafana/grafana:latest
-    container_name: grafana
+    container_name: grafana  
     ports:
       - "3000:3000"
     volumes:
       - ./deployment/grafana/provisioning:/etc/grafana/provisioning
       - ./deployment/grafana/dashboards:/var/lib/grafana/dashboards
     environment:
-      - GF_SECURITY_ADMIN_PASSWORD=admin
-      - GF_PATHS_PROVISIONING=/etc/grafana/provisioning    
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_PATHS_PROVISIONING: /etc/grafana/provisioning
+      SERVICE_SECRET: my_service-secret
     depends_on:
       - prometheus
     restart: always

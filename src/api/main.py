@@ -15,7 +15,7 @@ Usage:
     python src/api/main.py
 """
 
-from fastapi import FastAPI, HTTPException, Request, Response
+from fastapi import FastAPI, HTTPException, Request, Response, Header, Depends
 from pydantic import BaseModel
 import pandas as pd
 import subprocess
@@ -28,8 +28,10 @@ import os
 import sys
 import json
 import pickle
+import ipaddress
 import time
-from datetime import datetime
+from datetime import datetime, timedelta
+from jose import jwt, JWTError
 from prometheus_client import Counter, Histogram, generate_latest, CollectorRegistry, Gauge
 
 # Load environment variables
@@ -50,6 +52,49 @@ app = FastAPI(
     description="Predict rain in Australia using XGBoost with MLflow integration"
 )
 
+# jwt configuration
+SERVICE_SECRET = os.getenv('SERVICE_SECRET')
+ALGRORITHM = "HS256"
+ACCESS_TOKEN_EXPIRE_MINUTES = 30
+
+WHITE_LIST ={
+    ipaddress.ip_network("172.18.0.0/16")
+}
+
+def create_access_token(data:dict):
+    to_encode = data.copy()
+    expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    to_encode.update({"exp": expire})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGRORITHM) 
+
+class LoginRequest(BaseModel):
+    username: str
+    password: str
+
+def auth(request: Request, authorization: str = None):
+    
+    #client_ip = ipaddress.ip_address(request.client.host)
+    
+    #for net in WHITE_LIST:
+    #    if client_ip in net:
+    #        return {"type": "service", "ip": str(client_ip)}
+    service_secret_header = request.headers.get("X-Service-Secret")
+    if service_secret_header == SERVICE_SECRET:
+        return {"type": "service"}     
+
+
+    if not authorization:
+        raise HTTPException(status_code=401, detail="Missing authorization header")
+    
+    try:
+        scheme, token = authorization.split()
+        if scheme.lower() != "bearer":
+            raise HTTPException(status_code=401, detail="Invalid authentication scheme")
+        
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGRORITHM])
+        return {"type": "user", "user": payload["sub"]}
+    except (JWTError, ValueError):
+        raise HTTPException(status_code=401, detail="Invalid token")
 
 # MLflow configuration
 MLFLOW_TRACKING_URI = PARAMS['mlflow']['tracking_uri']
@@ -306,10 +351,24 @@ class SimplePredictionInput(BaseModel):
         if self.wind_speed_3pm is not None and self.wind_speed_3pm < 0:
             raise ValueError(f"wind_speed_3pm cannot be negative, got {self.wind_speed_3pm}")
 
+# Endpoint 0: login to get token
+@app.post("/login")
+async def login(data: LoginRequest):
+    """
+    User login to get JWT token.
+    """
+    # For simplicity, accept admim admin
+    if data.username != "admin" or data.password != "admin":
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    
+    token = create_access_token(data={"sub": form_data.username})
+    return {"access_token": token, "token_type": "bearer"}
+       
+
 
 # Endpoint 1: Train model
 @app.post("/train")
-async def train(split_id: int):
+async def train(split_id: int, auth_data= Depends(auth)):
     """
     Train a new model on specified split.
     
@@ -369,7 +428,7 @@ async def train(split_id: int):
 
 # Endpoint 2: Make prediction with 110 features as input data
 @app.post("/predict")
-async def predict(data: Dict[str, Any]):
+async def predict(data: Dict[str, Any], auth_data= Depends(auth)):
     """
     Make a rain prediction using the production model (FULL 110 features required)
     
@@ -423,7 +482,7 @@ async def predict(data: Dict[str, Any]):
 
 # Endpoint 3: Make prediction with simple input (5 features required)
 @app.post("/predict/simple")
-async def predict_simple(data: SimplePredictionInput):
+async def predict_simple(data: SimplePredictionInput, auth_data= Depends(auth)):
     """
     Simplified prediction using predict_model module from src/models/predict_model.py    
 
@@ -501,7 +560,7 @@ async def predict_simple(data: SimplePredictionInput):
 
 # Endpoint 4: Automated Pipeline - Process Next Split
 @app.post("/pipeline/next-split")
-async def process_next_split():
+async def process_next_split(auth_data= Depends(auth)):
     """
     Complete automated pipeline: Create next split, track with DVC, train, compare, promote.
     
@@ -689,7 +748,7 @@ async def process_next_split():
 
 # Endpoint 5: Automated Pipeline Process Next Split with Drift Monitoring
 @app.post("/pipeline/next-split-drift-detection")
-async def process_next_split_with_drift_monitoring():
+async def process_next_split_with_drift_monitoring(auth_data= Depends(auth)):
     """
     Automated pipeline with drift-triggered training.
     
@@ -1016,7 +1075,7 @@ async def root():
 
 # Endpoint model information
 @app.get("/model/info")
-async def get_model_info():
+async def get_model_info(auth_data= Depends(auth)):
     """Get current production model information"""
 
     print("\n\033[1m--------------------\033[0m")     
@@ -1039,7 +1098,7 @@ async def get_model_info():
 
 # Endpoint refresh model
 @app.post("/model/refresh")
-async def refresh_model():
+async def refresh_model(auth_data= Depends(auth)):
     """Refresh/reload the production model from MLflow"""
     start_time = time.time()
     status_code = 200
@@ -1077,7 +1136,7 @@ async def refresh_model():
         )
 
 @app.get("/metrics")
-async def metrics(request: Request):
+async def metrics(request: Request, auth_data= Depends(auth)):
     """
     Expose Prometheus metrics.
     """
