@@ -4,16 +4,20 @@ global:
 
 rule_files:
   - "rules/*.yml" # Location of alerting rules 
-
+  
 
 scrape_configs:
   - job_name: 'prometheus' # Job name for Prometheus itself
     static_configs:
       - targets: ['localhost:9090'] # Prometheus will monitor itself
 
-  - job_name: 'weather-api' # Job name for the weather API
+  - job_name: 'weather-api'
     static_configs:
-      - targets: ['fastapi_app:8000'] 
+      - targets: ['fastapi_app:8000']
+  
+  - job_name: 'nginx'
+    static_configs:
+    - targets: [nginx:88]
   
   - job_name: 'node-exporter' # Job name for Node Exporter
     static_configs:

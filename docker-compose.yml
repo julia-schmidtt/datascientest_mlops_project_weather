@@ -196,6 +196,15 @@ services:
       - '--path.rootfs=/rootfs'
         #      - '--collector.filesystem.mount-points-exclude=^/(dev|proc|sys|var/lib/docker/.+|var/run/docker/netns/.+)$'
     restart: always
+  
+  nginx:
+    image: nginx:alpine
+    volumes:
+      - ./deployment/nginx/nginx.conf:/etc/nginx/conf.d/default.conf
+    ports:
+      - "8088:88"
+    depends_on:
+      - fastapi
 
 volumes:
   postgres-db-volume:

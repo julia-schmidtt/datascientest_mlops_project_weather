@@ -54,6 +54,7 @@ app = FastAPI(
 
 # jwt configuration
 SERVICE_SECRET = os.getenv('SERVICE_SECRET')
+SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret")
 ALGRORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
@@ -361,7 +362,7 @@ async def login(data: LoginRequest):
     if data.username != "admin" or data.password != "admin":
         raise HTTPException(status_code=401, detail="Invalid credentials")
     
-    token = create_access_token(data={"sub": form_data.username})
+    token = create_access_token(data={"sub": data.username})
     return {"access_token": token, "token_type": "bearer"}
        
 
