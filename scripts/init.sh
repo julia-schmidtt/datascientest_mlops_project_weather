@@ -2,9 +2,9 @@
 set -e
 
 # Load environment variables
-if [ -f .env ]; then
-    export $(cat .env | grep -v '^#' | xargs)
-fi
+#if [ -f .env ]; then
+#    export $(cat .env | grep -v '^#' | xargs)
+#fi
 
 # Clean up automated splits data
 rm -rf data/automated_splits/split_*

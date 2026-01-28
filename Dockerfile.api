@@ -4,7 +4,7 @@ FROM python:3.12-slim
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
-    git \
+#    git \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
@@ -16,7 +16,11 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy .env for credentials
-COPY .env .env
+#COPY .env .env
+
+# Build args for Kaggle credentials
+ARG KAGGLE_USERNAME
+ARG KAGGLE_KEY
 
 # Load raw dataset from Kaggle
 RUN mkdir -p /app/data/raw && \
