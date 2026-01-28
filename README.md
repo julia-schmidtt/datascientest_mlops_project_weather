@@ -411,6 +411,11 @@ curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
 
 **MLflow experiment:** `YYYYMMDD_HHMM_Automated_Pipeline_WeatherPrediction_Australia`
 
+##### **9. Metrics**
+```bash
+curl http://localhost:8000/metrics
+```
+
 ---
 
 #### **Cron Job Automation**

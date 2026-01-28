@@ -7,6 +7,7 @@ Endpoints:
 - POST /predict: Make predictions with production model (110 input features needed, use e.g. tests/test_api_prediction.py to extract single sample from test set)
 - POST /predict/simple: Simplified prediction with production model (not 110 input features needed, missing features will be filled)
 - POST /pipeline/next-split: Automated pipeline (create split, track, train, promote)
+- POST /pipeline/next-split-drift-detection: Automated pipeline (create split, check data drift, track, train if data drift present, promote)
 - GET  /health: Health check
 - GET  /model/info: Get current production model info
 - POST /model/refresh: Reload production model
@@ -1003,13 +1004,17 @@ async def root():
             "model_refresh": "POST /model/refresh",
             "predict_full": "POST /predict",
             "predict_simple": "POST /predict/simple",
-            "train": "POST /train"
+            "train": "POST /train",
+            "pipeline": "POST /pipeline/next-split",
+            "pipeline_drift_detection": "POST /pipeline/next-split-drift-detection",
+            "metrics": "GET /metrics"
         },
         "mlflow_ui": MLFLOW_TRACKING_URI,
         "features": {
             "simple_prediction": "Only 5 required fields (location, date, min_temp, max_temp, rain_today)",
             "auto_scaling": "Automatic feature scaling for input data.",
-            "default_filling": "Missing features filled with training defaults."
+            "default_filling": "Missing features filled with training defaults when using simple prediction endpoint.",
+            "conditional_training": "When using pipeline endpoint with drift detection."
         }
     }
 
