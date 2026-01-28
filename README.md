@@ -155,7 +155,17 @@ Build and start all containers:
 docker compose up -d --build
 ```
 
-The following services will be available:
+Only build certain containers:
+```bash
+docker compose up -d service-name-from-docker-compose-file
+```
+
+E.g. if you want to build all containers except Airflow containers:
+```bash
+docker compose up -d fastapi streamlit postgres redis prometheus grafana node-exporter
+
+```
+The following services will be available if you start all containers:
 
 | Service | Port | URL | Credentials |
 |---------|------|-----|-------------|
@@ -166,7 +176,7 @@ The following services will be available:
 | Grafana | 3000 | http://localhost:3000 | `admin` / `admin` |
 | Streamlit | 8501 | http://localhost:8501 | - |
 
-> **Port Forwarding:** When working on a VM with VSCode, you may need to forward ports to your local machine.
+> **Port Forwarding:** When working on a VM with VSCode or a ssh connection, you may need to forward ports to your local machine.
 
 **Airflow Configuration:**
 
@@ -191,11 +201,23 @@ If the dashboard doesn't load automatically:
 
 #### **Step 4: Stop Docker Containers**
 
-When finished:
-
+When finished and you want do remove all containers:
 ```bash
 docker compose down
 ```
+
+Stopping certain containers:
+```bash
+docker compose stop service-name-from-docker-compose-file
+```
+
+Remove certain containers:
+```bash
+docker compose down service-name-from-docker-compose-file
+```
+
+```docker compose stop``` will only stop containers and data inside containers will be kept. If you want to start the containers again use ```docker compose start```.
+```docker compose down``` will remove containers and data inside containers will be deleted. If you want to build the containers again use ```docker compose up```.
 
 ---
 
