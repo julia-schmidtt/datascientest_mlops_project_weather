@@ -102,7 +102,7 @@
           "refId": "A"
         }
       ],
-      "title": "Weather Api Status",
+      "title": "Weather API Status",
       "type": "stat"
     },
     {
@@ -597,7 +597,7 @@
           "refId": "A"
         }
       ],
-      "title": "Memory usage",
+      "title": "Memory Usage",
       "type": "gauge"
     },
     {
@@ -659,7 +659,7 @@
           "refId": "A"
         }
       ],
-      "title": "Disk usage",
+      "title": "Disk Usage",
       "type": "gauge"
     },
     {
@@ -721,7 +721,7 @@
           "refId": "A"
         }
       ],
-      "title": "CPU usage",
+      "title": "CPU Usage",
       "type": "gauge"
     }
   ],
