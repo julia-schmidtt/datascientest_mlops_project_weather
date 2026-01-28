@@ -140,6 +140,11 @@ AIRFLOW_UID=1000
 AIRFLOW_GID=0
 ```
 
+#IP address and API port (8000) used by Streamlit app
+API_HOST=your-IP-address
+API_PORT=8000
+```
+
 > **Get your Kaggle token:** Kaggle → Settings → API Tokens → Generate New Token
 
 > **Get your DagsHub token:** DagsHub → Settings → Tokens
