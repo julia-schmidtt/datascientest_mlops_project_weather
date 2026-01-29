@@ -11,7 +11,7 @@ st.set_page_config(
 st.markdown(
     """
     <div style='text-align: center;'>
-        <h2>Welcome to the MLOps Weather Prediction project!</h2>
+        <h2>Welcome to the MLOps Weather Prediction Project!</h2>
         <p style='font-size:18px;'>
         This application presents the steps completed in this project.<br>
         </p>
