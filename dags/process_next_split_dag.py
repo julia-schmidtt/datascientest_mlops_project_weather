@@ -17,8 +17,12 @@ my_dag = DAG(
 
 # definition of the function to execute
 def call_next_split_endpoint():
-    url = "http://fastapi_app:8000/pipeline/next-split"
-    response = requests.post(url)
+    url = "http://nginx:88/pipeline/next-split"
+    token = "super-secret-token"
+    header = {
+        "authorization": f"Bearer {token}"
+    }
+    response = requests.post(url, headers=header)
 
     http_status = response.status_code
     body = response.text

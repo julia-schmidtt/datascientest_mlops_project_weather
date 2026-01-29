@@ -16,6 +16,7 @@ Usage:
 """
 
 from fastapi import FastAPI, HTTPException, Request, Response, Header, Depends
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from pydantic import BaseModel
 import pandas as pd
 import subprocess
@@ -53,49 +54,37 @@ app = FastAPI(
 )
 
 # jwt configuration
-SERVICE_SECRET = os.getenv('SERVICE_SECRET')
+SERVICE_TOKEN = os.getenv('SERVICE_SECRET')
 SECRET_KEY = os.getenv("JWT_SECRET", "dev-secret")
-ALGRORITHM = "HS256"
+ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-WHITE_LIST ={
-    ipaddress.ip_network("172.18.0.0/16")
-}
 
 def create_access_token(data:dict):
     to_encode = data.copy()
     expire = datetime.utcnow() + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     to_encode.update({"exp": expire})
-    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGRORITHM) 
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM) 
 
 class LoginRequest(BaseModel):
     username: str
     password: str
 
-def auth(request: Request, authorization: str = None):
-    
-    #client_ip = ipaddress.ip_address(request.client.host)
-    
-    #for net in WHITE_LIST:
-    #    if client_ip in net:
-    #        return {"type": "service", "ip": str(client_ip)}
-    service_secret_header = request.headers.get("X-Service-Secret")
-    if service_secret_header == SERVICE_SECRET:
-        return {"type": "service"}     
+security = HTTPBearer()
+def auth(credentials: HTTPAuthorizationCredentials= Depends(security)):
 
+    token = credentials.credentials
+    schmeme = credentials.scheme
 
-    if not authorization:
-        raise HTTPException(status_code=401, detail="Missing authorization header")
+    if token == SERVICE_TOKEN:
+        return {"type": "service", "name": "service-accsess"}
     
     try:
-        scheme, token = authorization.split()
-        if scheme.lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Invalid authentication scheme")
-        
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGRORITHM])
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         return {"type": "user", "user": payload["sub"]}
     except (JWTError, ValueError):
         raise HTTPException(status_code=401, detail="Invalid token")
+
 
 # MLflow configuration
 MLFLOW_TRACKING_URI = PARAMS['mlflow']['tracking_uri']

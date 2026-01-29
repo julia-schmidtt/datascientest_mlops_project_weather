@@ -18,7 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "id": 0,
+  "id": 2,
   "links": [],
   "panels": [
     {
@@ -92,11 +92,11 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
-          "expr": "up{job=\"weather-api\"}",
+          "expr": "up{job=\"nginx\"}",
           "legendFormat": "__auto",
           "range": true,
           "refId": "A"
@@ -159,7 +159,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -204,14 +204,14 @@
         },
         "viewMode": "list"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "title": "Alerts",
       "type": "alertlist"
     },
     {
       "datasource": {
-        "type": "prometheus"      
-    },
+        "type": "prometheus"
+      },
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -289,7 +289,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -382,7 +382,7 @@
           "sort": "none"
         }
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "datasource": {
@@ -465,7 +465,7 @@
         "textMode": "auto",
         "wideLayout": true
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -587,7 +587,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -649,7 +649,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -711,7 +711,7 @@
         "showThresholdMarkers": true,
         "sizing": "auto"
       },
-      "pluginVersion": "12.3.1",
+      "pluginVersion": "12.3.2",
       "targets": [
         {
           "editorMode": "code",
@@ -740,5 +740,5 @@
   "timezone": "browser",
   "title": "MLOps Project: Weather Prediction Dashboard",
   "uid": "ad6bwnt",
-  "version": 8
+  "version": 1
 }
