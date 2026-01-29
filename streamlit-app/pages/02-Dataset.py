@@ -46,6 +46,8 @@ content = "Raw dataset needed to be preprocessed before decisions regarding mode
 
 st.markdown(text_card.format(content=content), unsafe_allow_html=True)
 
+st.markdown("---")
+
 st.header("Preprocessing")
 
 st.markdown("""Identification and implementation of necessary preprocessing steps.""")
@@ -85,6 +87,8 @@ for i, (title, content) in enumerate([
         st.markdown(f"**{title}**")
         st.markdown(content)
 
+st.markdown("---")
+
 st.header("Modeling")
 
 st.markdown("""Identification of best suited model and choice of hyperparameters.""")
@@ -123,6 +127,8 @@ text_card2 = """
 content3 = "Preprocessing steps, model type and model hyperparameters identified."
 
 st.markdown(text_card2.format(content=content3), unsafe_allow_html=True)
+
+st.markdown("---")
 
 with st.expander("References"):
     st.markdown("""

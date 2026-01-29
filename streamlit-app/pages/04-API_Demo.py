@@ -117,8 +117,6 @@ for i in range(0, len(endpoints_with_button), 2):
                 except Exception as e:
                     st.error(str(e))
 
-st.markdown("---")
-
 
 for i in range(0, len(endpoints_without_button), 2):
     col1, col2 = st.columns(2)
@@ -143,9 +141,9 @@ for i in range(0, len(endpoints_without_button), 2):
 
 st.markdown("---")
 
-st.header("Live Prediction Demo")
+st.header("Live Weather Prediction")
 
-st.markdown("Try out the weather prediction model with custom input data. The simple prediction requires only 5 inputs.")
+st.markdown("Try out the weather prediction API for locations in Australia. Here the predict/simple endpoint is demonstrated, therefore only 5 inputs are required.")
 
 with st.form("prediction_form"):
     col1, col2, col3 = st.columns(3)
@@ -167,7 +165,7 @@ with st.form("prediction_form"):
     submit = st.form_submit_button("🌦️ Predict Rain Tomorrow", use_container_width=True)
     
     if submit:
-        # Validierung
+        #  Validation
         if date is None:
             st.error("Please select a date")
         elif min_temp >= max_temp:
@@ -197,29 +195,33 @@ with st.form("prediction_form"):
                     
                     st.success("Prediction successful!")
                     
-                    # Mapping: API gibt 0 oder 1 zurück
+                    # Mapping
                     prediction_value = result.get("prediction", 0)
                     prediction = "Yes" if prediction_value == 1 else "No"
                     
-                    # Ergebnisse anzeigen
+                    # Show results
                     col1, col2 = st.columns(2)
                     
                     with col1:
                         with st.container(border=True):
                             if prediction == "Yes":
-                                st.markdown("### 🌧️ Rain Expected")
+                                st.markdown("### 🌧️  Rain Expected Tomorrow")
                             else:
-                                st.markdown("### ☀️ No Rain Expected")
-                            st.metric(
-                                label="Prediction",
-                                value=prediction
-                            )
+                                st.markdown("### ☀️ No Rain Expected Tomorrow")
+#                            st.metric(
+ #                               label="Prediction",
+  #                              value=prediction
+   #                         )
                     
                     with col2:
                         with st.container(border=True):
                             prob_rain = result.get('probability_rain', 0) * 100
                             st.metric(
-                                label="Rain Probability",
+                                label='Model Prediction',
+                                value=prediction
+                            )
+                            st.metric(
+                                label="Rain Probability for Tomorrow",
                                 value=f"{prob_rain:.1f}%"
                             )
                     

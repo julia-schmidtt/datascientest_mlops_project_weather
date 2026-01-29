@@ -143,6 +143,12 @@ AIRFLOW_GID=0
 #IP address and API port (8000) used by Streamlit app
 API_HOST=your-IP-address
 API_PORT=8000
+
+# IP adress, Grafana port (3000) and Grafana dashboard UID (can be found when opening the dashboard on Grafana in the URL: http://localhost:3000/d/ab1cdef/mlops-project3a-weather-prediction-dashboard?orgId=1&from=now-15m&to=now&timezone=browser&refresh=auto
+# In the example URL the UID is `ab1cdef`
+GRAFANA_HOST=your-IP-address
+GRAFANA_PORT=3000
+GRAFANA_DASHBOARD_UID=dashboard-uid
 ```
 
 > **Get your Kaggle token:** Kaggle → Settings → API Tokens → Generate New Token
