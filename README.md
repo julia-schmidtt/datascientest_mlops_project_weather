@@ -138,7 +138,6 @@ MLFLOW_TRACKING_URI=https://dagshub.com/julia-schmidtt/datascientest_mlops_proje
 # Airflow configuration
 AIRFLOW_UID=1000
 AIRFLOW_GID=0
-```
 
 #IP address and API port (8000) used by Streamlit app
 API_HOST=your-IP-address

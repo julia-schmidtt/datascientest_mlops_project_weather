@@ -64,29 +64,26 @@ Here, the present Docker containers are described. The FastAPI container has a s
             
 
 with tab2:
-    st.markdown("""INSERT DIAGRAM""")
-    
+    st.image("/app/images/architecture.png", use_column_width=True)    
 
 with tab3:
     
-    st.subheader("Simulating Data Evolution and Triggering (Conditional) Model Training")
-    
     st.markdown("""
-    Data evolution over time is simulated by periodically calling pipeline API endpoints to process new data splits.
-    This can be performed with Airflow, if enooigh resources are present (Option 1).
-    If the resources are limited cron jobs can be defined (Option 2). 
-    This procedure should simulate real-world scenarios where new data arrives in certain intervals.
+    Data evolution over time:
+    - Simulated by periodically calling pipeline API endpoints to process new data splits
+    - Possible to perform with Airflow, if enough resources are present (Option 1)
+    - If resources are limited: define cron job (Option 2)
+    - Procedure should simulate real-world scenarios where new data arrives in certain time intervals
+
+    API pipeline endpoint without data drift detection:
+    - Model training for every new data arrival
+    - Performance comparison of new model with  production model performance
+    - If performance of new model is better, it becomes production model and the old production model is archived
+    - If performance of new model is worse, it is archived and the production model does not change
                 
-    There are two API pipeline endpoints present, one without data drift detection and another with data drift detection before training (conditional training).
-    If the endpoint without data drift detection is used, the model is trained every time after new data arrived.
-    The performance of the new model is compared to the production model performance. 
-    If the performance of the new model is better, it becomes production model.
-    If the performance is worse, it is archived and the production model does not change.
-                
-    If the endpoint with data drift detection is used, the newly arrived data is compared to the data of the current production model.
-    If data drift is detected, the model is retrained with the new data. Afterwards the performance of the new model is compared to the production model performance. 
-    If the performance of the new model is better, it becomes the new production model. 
-    If the performance is worse, the new model is archived.
+    API pipeline endpoint with data drift detection:
+    - Conditional model training: comparison of new data with training data of current production model
+    - If data drift is detected, the model is retrained with the new data (after training: model performance comparison with production model, decision like in endpoint without drift detection)
     """)
     
     col1, col2 = st.columns(2)

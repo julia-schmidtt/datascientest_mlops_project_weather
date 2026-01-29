@@ -120,3 +120,4 @@ monitoring/reports/*
 mlruns/
 
 
+streamlit-app/images/*
