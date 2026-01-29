@@ -48,6 +48,18 @@ time_map = {
     "Last 24 hours": "now-24h"
 }
 
+col1, col2, col3= st.columns(3)
+
+with col1:
+    st.link_button("Grafana", GRAFANA_URL, use_container_width=True)
+
+with col2:
+    st.link_button("Prometheus", f"http://{GRAFANA_HOST}:9090", use_container_width=True)
+
+with col3:
+    if st.button("Refresh Page", use_container_width=True):
+        st.rerun()
+
 # Check if Dashboard UID is configured
 if not GRAFANA_DASHBOARD_UID:
     st.warning("Grafana Dashboard UID is not configured")
@@ -85,18 +97,6 @@ else:
 
     st.markdown("---")
 
-    # Footer
-    col1, col2, col3= st.columns(3)
-
-    with col1:
-        st.link_button("Grafana", GRAFANA_URL, use_container_width=True)
-
-    with col2:
-        st.link_button("Prometheus", f"http://{GRAFANA_HOST}:9090", use_container_width=True)
-
-    with col3:
-        if st.button("Refresh Page", use_container_width=True):
-            st.rerun()
 
 # Info Box
 with st.expander("About the Monitoring"):
