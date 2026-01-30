@@ -138,6 +138,10 @@ MLFLOW_TRACKING_URI=https://dagshub.com/julia-schmidtt/datascientest_mlops_proje
 # Airflow configuration
 AIRFLOW_UID=1000
 AIRFLOW_GID=0
+
+# API authentication
+SERVICE_SECRET=super-secret-token
+JWT_SECRET=dev-secret
 ```
 
 > **Get your Kaggle token:** Kaggle → Settings → API Tokens → Generate New Token
@@ -174,7 +178,8 @@ The following services will be available if you start all containers:
 | Prometheus | 9090 | http://localhost:9090 | - |
 | Node Exporter | 9100 | http://localhost:9100 | - |
 | Grafana | 3000 | http://localhost:3000 | `admin` / `admin` |
-| Streamlit | 8501 | http://localhost:8501 | - |
+| Streamlit | 8501 | http://localhost:8501 | - |  
+| Nginx | 8088 | http://localhost:8088 | - |
 
 > **Port Forwarding:** When working on a VM with VSCode or a ssh connection, you may need to forward ports to your local machine.
 
@@ -312,6 +317,19 @@ docker compose logs -f fastapi
 
 #### **Available API Endpoints**
 
+##### **0. Login**
+Get Token to access all other endpoints
+```bash
+curl -X 'POST' \
+  'http://localhost:8000/login' \
+  -H 'accept: application/json' \
+  -H 'Content-Type: application/json' \
+  -d '{
+  "username": "admin",
+  "password": "admin"
+}'
+```
+
 ##### **1. Health Check**
 
 ```bash
@@ -321,13 +339,20 @@ curl http://localhost:8000/health
 ##### **2. Model Info**
 
 ```bash
-curl http://localhost:8000/model/info
+curl -X 'GET' \
+  'http://localhost:8000/model/info' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer your-token'
 ```
 
 ##### **3. Reload Model**
 
 ```bash
-curl -X POST http://localhost:8000/model/refresh
+curl -X 'POST' \
+  'http://localhost:8000/model/refresh' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer your-token' \
+  -d ''
 ```
 
 ##### **4. Training Endpoint**
@@ -335,7 +360,11 @@ curl -X POST http://localhost:8000/model/refresh
 Train model on specific split (example: split 1):
 
 ```bash
-curl -X POST "http://localhost:8000/train?split_id=1"
+curl -X 'POST' \
+  'http://localhost:8000/train?split_id=2' \
+  -H 'accept: application/json' \
+  -H 'Authorization: Bearer your-token' \
+  -d ''
 ```
 
 **MLflow experiment:** `WeatherAUS_YearBased_Training`
@@ -347,6 +376,7 @@ Requires only 5 input features:
 ```bash
 curl -X POST http://localhost:8000/predict/simple \
   -H "Content-Type: application/json" \
+  -H 'Authorization: Bearer your-token' \
   -d '{
     "location": "Sydney",
     "date": "2025-01-15",
@@ -376,7 +406,9 @@ exit
 ##### **7. Automated Pipeline**
 
 ```bash
-curl -X POST http://localhost:8000/pipeline/next-split
+curl -X POST http://localhost:8000/pipeline/next-split \
+  -H "Content-Type: application/json" \
+  -H 'Authorization: Bearer your-token' \
 ```
 
 **Complete workflow:**
@@ -392,7 +424,9 @@ curl -X POST http://localhost:8000/pipeline/next-split
 ##### **8. Automated Pipeline with Drift Detection**
 
 ```bash
-curl -X POST http://localhost:8000/pipeline/next-split-drift-detection
+curl -X POST http://localhost:8000/pipeline/next-split-drift-detection \
+  -H "Content-Type: application/json" \
+  -H 'Authorization: Bearer your-token' \
 ```
 
 **Complete workflow:**
