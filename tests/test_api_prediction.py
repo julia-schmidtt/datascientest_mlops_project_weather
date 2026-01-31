@@ -10,15 +10,19 @@ import json
 print('Test Rain Prediction API')
 
 # 1. Check if API is healthy
+token = "super-secret-token"
+header = {
+    "authorization": f"Bearer {token}"
+}
 print("1. Checking API health.")
-health = requests.get('http://localhost:8000/health')
+health = requests.get('http://localhost:8000/health', headers=header)
 print(f"Status: {health.json()['status']}")
 print(f"Model loaded: {health.json()['model_loaded']}")
 print(f"Model version: {health.json()['model_version']}\n")
 
 # 2. Get model info
 print("2. Getting production model info.")
-model_info = requests.get('http://localhost:8000/model/info')
+model_info = requests.get('http://localhost:8000/model/info', headers=header)
 info = model_info.json()['model']
 print(f"Version: {info['version']}")
 print(f"F1 Score: {info['metrics']['f1_score']:.4f}")
@@ -42,7 +46,7 @@ print(f"Actual label: {'Rain' if actual_label == 1 else 'No Rain'}\n")
 
 # 4. Make prediction
 print("4. Making prediction.")
-response = requests.post('http://localhost:8000/predict', json=sample)
+response = requests.post('http://localhost:8000/predict', json=sample, headers=header)
 
 if response.status_code == 200:
     result = response.json()
