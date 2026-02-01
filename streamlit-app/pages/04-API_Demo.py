@@ -13,6 +13,7 @@ API_HOST = os.getenv("API_HOST", "localhost")
 API_PORT = os.getenv("API_PORT", "8000")
 API_URL = f"http://{API_HOST}:{API_PORT}"
 
+
 # API Status Check
 with st.container(border=True):
     st.markdown("**API Status**")
@@ -32,6 +33,13 @@ st.markdown("---")
 tab1, tab2, tab3 = st.tabs(["API Endpoints", "Live Weather Prediction", "README"])
 
 with tab1:
+    with st.container(border=True):
+        st.markdown("**POST/login**")
+        st.code("http://localhost:8000/login", language="text")
+        st.markdown("First step: Use login endpoint to get token for API security.")
+
+    st.markdown("---")
+ 
 
     st.markdown("""
         <style>
@@ -57,6 +65,8 @@ with tab1:
         ("POST", "/pipeline/next-split", "Automated pipeline for triggering data growth, model training and new decision regarding production model."),
         ("POST", "/pipeline/next-split-drift-detection", "Automated pipeline for triggering data growth, data drift detection, conditional training if data drift is detected and decision regarding production model. If no data drift is present, no training will be performed and the current production model will not change."),
     ]
+
+
 
 
     for i in range(0, len(endpoints_with_button), 2):
