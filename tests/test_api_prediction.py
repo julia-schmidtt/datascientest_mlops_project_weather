@@ -22,8 +22,9 @@ print(f"Model version: {health.json()['model_version']}\n")
 
 # 2. Get model info
 print("2. Getting production model info.")
-model_info = requests.get('http://localhost:8000/model/info', headers=header)
-info = model_info.json()['model']
+response = requests.get('http://localhost:8000/model/info', headers=header)
+model_info = response.json()
+info = model_info['model']
 print(f"Version: {info['version']}")
 print(f"F1 Score: {info['metrics']['f1_score']:.4f}")
 print(f"Trained on: {info['params']['years']}\n")
