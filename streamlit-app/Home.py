@@ -41,7 +41,7 @@ card_style = """
 </div>
 """
 
-team = ["Member 1", "Member 2", "Member 3", "Member 4"]
+team = ["Alex", "Jonas", "Kiki", "Julia"]
 
 # 2x2 Layout
 for i in range(0, len(team), 2):

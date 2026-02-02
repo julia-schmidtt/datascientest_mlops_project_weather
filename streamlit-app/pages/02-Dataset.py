@@ -68,17 +68,18 @@ with tab2:
         - **Option C**: Replace missing values with median/modus of training data -> columns containing max. 10% missing values
         - **Numerical Columns**: Replace missing values with median
         - **Categorical Columns**: Replace missing values with modus
-        - **Save Median/Modus**: Save values for every column for later use
+        - **Save Median/Modus**: Save values for every column for later usage
         """),
         ("Step 5: One-Hot Encoding", """
-        - **Categorical Columns**: Only numerical values for easier handling
+        - **Categorical Columns**: Only numerical values
+        - Necessary for modeling phase
         """),
         ("Step 6: Scaling", """
         - **StandardScaler**: Use scaler for training data and apply to test data to prevent data leakage
-        - **Save Scaler**: Save StandardScaler for later use
+        - **Save Scaler**: Save StandardScaler for later usage
         """),
         ("Step 7: Balance Class Distribution", """
-        - **Class Distribution After Preprocessing**: No Rain 77.8%, Rain 22.2%
+        - **Class Distribution after Preprocessing**: No Rain 77.8%, Rain 22.2%
         - **SMOTE**: Applied on training data for balanced class distribution
         """)
     ], 1):
@@ -120,7 +121,7 @@ with tab3:
     </div>
     """
 
-    content3 = "Preprocessing steps, model type and model hyperparameters identified."
+    content3 = "Preprocessing steps, model type (XGBClassifier) and model hyperparameters identified."
 
     st.markdown(text_card2.format(content=content3), unsafe_allow_html=True)
 

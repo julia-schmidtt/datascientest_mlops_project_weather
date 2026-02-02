@@ -36,7 +36,45 @@ with tab1:
     with st.container(border=True):
         st.markdown("**POST/login**")
         st.code("http://localhost:8000/login", language="text")
-        st.markdown("First step: Use login endpoint to get token for API security.")
+        st.markdown("First step: Use login endpoint to get token for API security. Use token for other endpoints.")
+
+    with st.expander("Example Usage"):
+        st.markdown("1. Get token via login endpoint:")
+        st.code("""curl -X 'POST' \\
+      'http://localhost:8000/login' \\
+      -H 'accept: application/json' \\
+      -H 'Content-Type: application/json' \\
+      -d '{
+      "username": "admin",
+      "password": "admin"
+    }'""", language="bash")
+        st.markdown("Returns Token, e.g.: 1234")
+
+        st.markdown("2. Use token for endpoints:")
+        st.code("""curl -X 'GET' \\
+      'http://localhost:8000/model/info' \\
+      -H 'accept: application/json' \\
+      -H 'Authorization: Bearer 1234'""", language="bash")
+
+        st.code("""curl -X POST http://localhost:8000/predict/simple \\
+  -H "Content-Type: application/json" \\
+  -H 'Authorization: Bearer 1234' \\
+  -d '{
+    "location": "Sydney",
+    "date": "2025-01-15",
+    "min_temp": 18.0,
+    "max_temp": 28.0,
+    "rain_today": 0
+  }' """, language="bash")
+
+        st.code("""curl -X POST http://localhost:8000/pipeline/next-split \\
+  -H "Content-Type: application/json" \\
+  -H 'Authorization: Bearer 1234'  """, language="bash")
+
+        st.code("""curl -X POST http://localhost:8000/pipeline/next-split-drift-detection \\
+  -H "Content-Type: application/json" \\
+  -H 'Authorization: Bearer 1234'  """, language="bash")
+
 
     st.markdown("---")
  
