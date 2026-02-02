@@ -54,6 +54,4 @@ for i in range(0, len(team), 2):
 st.markdown("---")
 
 
-st.markdown("##### Project")
-
-st.link_button("View on GitHub", "https://github.com/julia-schmidtt/datascientest_mlops_project_weather/tree/master?tab=readme-ov-file", use_container_width=True)
+st.link_button("Find Project on GitHub", "https://github.com/julia-schmidtt/datascientest_mlops_project_weather/tree/master?tab=readme-ov-file", use_container_width=True)

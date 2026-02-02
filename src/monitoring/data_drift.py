@@ -13,7 +13,9 @@ from datetime import datetime
 from evidently import ColumnMapping
 from evidently.report import Report
 from evidently.metric_preset import DataDriftPreset, DataQualityPreset
+import warnings
 
+warnings.filterwarnings('ignore', category=RuntimeWarning)
 
 class DataDriftMonitor:
     def __init__(self):
@@ -30,7 +32,7 @@ class DataDriftMonitor:
         self.reference_split = self._get_production_split_id()
         
         # Load reference data from production model's training split
-        split_dirs = list(Path("data/training_data_splits_by_year").glob(
+        split_dirs = list(Path("data/automated_splits").glob(
             f"split_{self.reference_split:02d}_*"
         ))
         
@@ -200,7 +202,7 @@ class DataDriftMonitor:
         print(f"\n=== Drift Check: Split {split_id} vs Production (Split {self.reference_split}) ===\n")
         
         # Load split data
-        split_dirs = list(Path("data/training_data_splits_by_year").glob(f"split_{split_id:02d}_*"))
+        split_dirs = list(Path("data/automated_splits").glob(f"split_{split_id:02d}_*"))
         
         if not split_dirs:
             # Try automated splits

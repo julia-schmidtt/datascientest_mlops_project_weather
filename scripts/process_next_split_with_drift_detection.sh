@@ -11,7 +11,7 @@ echo "=========================================================="
 cd "$(dirname "$0")/.."
 
 # Activate virtual environment
-source venv/bin/activate
+#source venv/bin/activate
 
 # Call API endpoint with drift detection
 echo ""

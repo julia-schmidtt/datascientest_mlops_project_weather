@@ -562,85 +562,85 @@ async def process_next_split():
 
 
         # STEP 2: DVC tracking
-        print("\nSTEP 2: Tracking data with DVC.")
+#        print("\nSTEP 2: Tracking data with DVC.")
         
         # DVC add
-        dvc_add_result = subprocess.run(
-            ["dvc", "add", "data/automated_splits"],
-            capture_output=True,
-            text=True,
-            timeout=60
-        )
+#        dvc_add_result = subprocess.run(
+#            ["dvc", "add", "data/automated_splits"],
+#            capture_output=True,
+#            text=True,
+#            timeout=60
+#        )
 
-        if dvc_add_result.returncode == 0:
-            print("DVC add successful")
+#        if dvc_add_result.returncode == 0:
+#            print("DVC add successful")
             
             # Git add .dvc file
-            subprocess.run(
-                ["git", "add", "data/automated_splits.dvc", ".gitignore"],
-                capture_output=True,
-                timeout=30
-            )
+#            subprocess.run(
+#                ["git", "add", "data/automated_splits.dvc", ".gitignore"],
+#                capture_output=True,
+#                timeout=30
+#            )
             
             # Git commit
-            subprocess.run(
-                ["git", "commit", "-m", f"Add automated training split {split_id}"],
-                capture_output=True,
-                timeout=30
-            )
+#            subprocess.run(
+#                ["git", "commit", "-m", f"Add automated training split {split_id}"],
+#                capture_output=True,
+#                timeout=30
+#            )
 
             # Git push to GitHub
-            try:
+#            try:
                 # Get current branch name
-                branch_result = subprocess.run(
-                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10
-                )
-                current_branch = branch_result.stdout.strip()
+#                branch_result = subprocess.run(
+#                    ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+#                    capture_output=True,
+#                    text=True,
+#                    timeout=10
+#                )
+#                current_branch = branch_result.stdout.strip()
 
-                print(f"Pushing to branch: {current_branch}")
+#                print(f"Pushing to branch: {current_branch}")
 
                 # Git push to current branch
-                git_push_result = subprocess.run(
-                    ["git", "push", "origin", current_branch],
-                    capture_output=True,
-                    text=True,
-                    timeout=60
-                )
+#                git_push_result = subprocess.run(
+#                    ["git", "push", "origin", current_branch],
+#                    capture_output=True,
+#                    text=True,
+#                    timeout=60
+#                )
 
-                if git_push_result.returncode == 0:
-                    print("git push successful")
-                    git_push_status = "success"
-                else:
-                    print(f"git push failed: {git_push_result.stderr}")
-                    git_push_status = "failed"
-            except Exception as e:
-                print(f"git push error: {e}")
-                git_push_status = "error"
-
+#                if git_push_result.returncode == 0:
+#                    print("git push successful")
+#                    git_push_status = "success"
+#                else:
+#                    print(f"git push failed: {git_push_result.stderr}")
+#                    git_push_status = "failed"
+#            except Exception as e:
+#                print(f"git push error: {e}")
+#                git_push_status = "error"
+#
             
             # DVC push
-            dvc_push_result = subprocess.run(
-                ["dvc", "push"],
-                capture_output=True,
-                text=True,
-                timeout=300
-            )
+#            dvc_push_result = subprocess.run(
+#                ["dvc", "push"],
+#                capture_output=True,
+#                text=True,
+#                timeout=300
+#            )
             
-            dvc_status = "success" if dvc_push_result.returncode == 0 else "failed"
-            print(f"DVC push {dvc_status}")
-        else:
-            dvc_status = "failed"
-            print(f"DVC tracking failed")
+#            dvc_status = "success" if dvc_push_result.returncode == 0 else "failed"
+#            print(f"DVC push {dvc_status}")
+#        else:
+#            dvc_status = "failed"
+#            print(f"DVC tracking failed")
                 
         # STEP 3: Train model
         print(f"\nSTEP 3: Training model on training data split {split_id}.")
         automation_experiment = AUTOMATION_EXPERIMENT_NAME
 
         train_result = subprocess.run(
-            ["python", "src/models/train_model.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
+            ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
             capture_output=True,
             text=True,
             timeout=600
@@ -752,49 +752,6 @@ async def process_next_split_with_drift_monitoring():
             detail=f"Error creating split: {str(e)}"
         )
 
-    # STEP 2: DVC Tracking
-    print("STEP 2: Tracking data with DVC")
-    
-    try:
-        split_dir = f"data/automated_splits/split_{split_id:02d}_*"
-        import glob
-        split_path = glob.glob(split_dir)[0]
-        
-        # DVC add
-        subprocess.run(["dvc", "add", split_path], check=True)
-        print("DVC add successful")
-        
-        # Git add, commit, push
-        current_branch = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
-            capture_output=True,
-            text=True,
-            check=True
-        ).stdout.strip()
-        
-        subprocess.run([
-            "git", "add",
-            f"{split_path}.dvc",
-            "data/automated_splits/.gitignore",
-            "data/automated_splits/metadata.yaml"
-        ], check=True)
-        
-        subprocess.run([
-            "git", "commit", "-m",
-            f"Add automated training split {split_id}"
-        ], check=True)
-        
-        print(f"Pushing to branch: {current_branch}")
-        subprocess.run(["git", "push", "origin", current_branch], check=True)
-        print("git push successful")
-        
-        # DVC push
-        subprocess.run(["dvc", "push"], check=True)
-        print("DVC push success")
-        
-    except subprocess.CalledProcessError as e:
-        print(f"Warning: DVC/Git tracking failed: {e}")
-
     # STEP 3: DRIFT CHECK
     print("STEP 3: Data Drift Monitoring")
     
@@ -845,10 +802,10 @@ async def process_next_split_with_drift_monitoring():
                 print(f"  Recommendation: {drift_result['alert']['recommendation']}")
                 
         except Exception as e:
-            print(f"\nrift check failed: {e}")
+            print(f"\nDrift check failed: {e}")
             print("  Proceeding to training anyway (failsafe)...")
     
-    # Return early if skipping training
+    # Return if skipping training
     if skip_training:
         return {
             "status": "skipped",
@@ -879,7 +836,7 @@ async def process_next_split_with_drift_monitoring():
     try:
         automation_experiment = AUTOMATION_EXPERIMENT_NAME
         result = subprocess.run(
-            ["python", "src/models/train_model.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
+            ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
             capture_output=True,
             text=True,
             timeout=300
@@ -913,7 +870,7 @@ async def process_next_split_with_drift_monitoring():
     success = load_production_model()
     
     if success:
-        print("Production model reloaded")
+        print("Production model loaded")
     else:
         print("Warning: Could not reload production model")
     

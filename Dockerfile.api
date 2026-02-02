@@ -36,15 +36,9 @@ RUN mkdir -p /app/data/interim /app/data/processed
 COPY src ./src
 COPY params.yaml params.yaml
 
-#RUN dvc remote add origin https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.dvc
-#RUN dvc remote modify origin --local auth basic
-#RUN dvc remote modify origin --local user jooooo3141
-#RUN dvc remote modify origin --local password c28100db0e979764a8111c1589b83b46c2024571 
 EXPOSE 8000
 
-
 COPY scripts/archive_all_models.py scripts/archive_all_models.py
-RUN chmod +x scripts/archive_all_models.py
 
 COPY scripts/init.sh init.sh
 RUN chmod +x init.sh
