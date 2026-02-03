@@ -91,11 +91,23 @@ def track_split(split_id: int) -> dict:
         
         # Git push
         subprocess.run(
-            ["git", "push"],
+            ["git", "push", "origin", "main"],
             check=True,
             capture_output=True
         )
         print(f"  [✓] Git push completed")
+
+        
+        # Git push to DagsHub
+        result_dagshub = subprocess.run(
+            ["git", "push", "dagshub", "main"],
+            capture_output=True,
+            text=True
+        )
+        if result_dagshub.returncode == 0:
+            print(f"  [✓] Git push to DagsHub completed")
+        else:
+            print(f"  [!] Git push to DagsHub warning: {result_dagshub.stderr}")
         
         print(f"[✓] Split {split_id} tracked successfully!\n")
         

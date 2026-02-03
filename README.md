@@ -155,6 +155,8 @@ GRAFANA_DASHBOARD_UID=dashboard-uid
 > **Get your DagsHub token:** DagsHub → Settings → Tokens
 
 #### **Step 3: Data Tracking Setup**
+Only necessary if you want to track you data using the two dvc API pipeline endpoints
+
 ```bash
 # Navigate to home directory
 cd ~
@@ -190,6 +192,18 @@ echo "config" >> .dvc/.gitignore
 git add .dvc .dvcignore
 git commit -m "Initialize DVC"
 git push -u origin main
+
+# Verify DVC Remote configurations
+git remote -v 
+
+dvc remote list
+
+#expected output:
+# origin    https://...@github.com/.../datascientest_mlops_project_weather_data.git
+#dagshub  https://...@dagshub.com/.../datascientest_mlops_project_weather_data.git
+
+#origin  https://dagshub.com/.../datascientest_mlops_project_weather_data.dvc (default)
+
 
 # Return to project
 cd ~/datascientest_mlops_project_weather
@@ -676,6 +690,29 @@ All data splits are tracked here:
 
 ```
 https://github.com/julia-schmidtt/datascientest_mlops_project_weather_data
+```
+
+```bash
+# Accessing Tracked Data
+cd ~/dvc-data-repo
+
+# List all tracked splits
+dvc list --dvc-only . data/automated_splits
+
+# Download Specific Data Split
+dvc get . data/automated_splits/split_03_2008-2010 -o /tmp/split3
+
+# View contents
+ls -lh /tmp/split3/
+
+#expected output:
+#X_train.csv   
+#X_test.csv    
+#y_train.csv  
+#y_test.csv 
+
+# Download data when not inside repo
+dvc get https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather_data.git  data/automated_splits/split_05_2008-2012 -o ~/downloaded_split5
 ```
 ---
 ---

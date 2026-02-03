@@ -32,7 +32,7 @@ class DataDriftMonitor:
         self.reference_split = self._get_production_split_id()
         
         # Load reference data from production model's training split
-        split_dirs = list(Path("data/automated_splits").glob(
+        split_dirs = list(Path("/app/data/automated_splits").glob(
             f"split_{self.reference_split:02d}_*"
         ))
         
@@ -202,11 +202,11 @@ class DataDriftMonitor:
         print(f"\n=== Drift Check: Split {split_id} vs Production (Split {self.reference_split}) ===\n")
         
         # Load split data
-        split_dirs = list(Path("data/automated_splits").glob(f"split_{split_id:02d}_*"))
+        split_dirs = list(Path("/app/data/automated_splits").glob(f"split_{split_id:02d}_*"))
         
         if not split_dirs:
             # Try automated splits
-            split_dirs = list(Path("data/automated_splits").glob(f"split_{split_id:02d}_*"))
+            split_dirs = list(Path("/app/data/automated_splits").glob(f"split_{split_id:02d}_*"))
         
         if not split_dirs:
             raise FileNotFoundError(f"Split {split_id} not found!")
