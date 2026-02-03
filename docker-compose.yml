@@ -15,7 +15,6 @@ x-airflow-common: &airflow-common
     AIRFLOW__SMTP__SMTP_PASSWORD: "cfsrvkongsobheta"
     AIRFLOW__SMTP__SMTP_MAIL_FROM: "de.airflow@gmail.com"
 
-    # _PIP_ADDITIONAL_REQUIREMENTS: ${_PIP_ADDITIONAL_REQUIREMENTS:-}
   volumes:
     - ./dags:/opt/airflow/dags
     - ./logs:/opt/airflow/logs
@@ -42,8 +41,9 @@ services:
       - .env 
     volumes:
       - ./models:/app/models
-      - ./.dvc:/app/.dvc
       - ./tests:/app/tests
+      - ./data:/app/data
+      - ~/dvc-data-repo:/app/dvc-tracking
     restart: unless-stopped
 
 
@@ -204,3 +204,4 @@ volumes:
   postgres-db-volume:
   prometheus_data: {}
   grafana_data: {}
+  dvc-cache: {}

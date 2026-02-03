@@ -121,3 +121,6 @@ mlruns/
 
 
 streamlit-app/images/*
+
+dvc-repo/
+data/automated_splits/

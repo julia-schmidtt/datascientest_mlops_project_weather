@@ -32,6 +32,7 @@ import pickle
 import time
 from datetime import datetime
 from prometheus_client import Counter, Histogram, generate_latest, CollectorRegistry, Gauge
+from src.utils.track_with_dvc import track_split
 
 # Load environment variables
 load_dotenv()
@@ -531,7 +532,8 @@ async def process_next_split():
             ["python", "src/data/automation_create_split.py"],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=120,
+            cwd="/app" 
         )
 
         if create_result.returncode != 0:
@@ -560,8 +562,11 @@ async def process_next_split():
         print(f"Split {split_id} created")
         print(create_result.stdout)
 
-
-                
+        # STEP 2: Skip DVC tracking
+        print(f"\nSTEP 2: DVC tracking skipped (use /pipeline/next-split-dvc for DVC)")
+        dvc_status = "skipped"
+        git_commit = None
+              
         # STEP 3: Train model
         print(f"\nSTEP 3: Training model on training data split {split_id}.")
         automation_experiment = AUTOMATION_EXPERIMENT_NAME
@@ -570,7 +575,8 @@ async def process_next_split():
             ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
             capture_output=True,
             text=True,
-            timeout=600
+            timeout=600,
+            cwd="/app"
         )
 
         if train_result.returncode != 0:
@@ -593,13 +599,14 @@ async def process_next_split():
             "pipeline_steps": {
                 "split_creation": "completed",
                 "dvc_tracking": dvc_status,
-                #"git_push": git_push_status,
+                "git_commit": git_commit,
                 "model_training": "completed",
                 "model_reload": "completed"
             },
             "current_production_model": model_info,
             "outputs": {
                 "split_creation": create_result.stdout,
+                "dvc_tracking": "skipped",
                 "training": train_result.stdout[-500:]
             }
         }
@@ -623,7 +630,6 @@ async def process_next_split_with_drift_monitoring():
     
     Workflow:
     1. Create next temporal split
-    2. Track with DVC (add, commit, push)
     3. Check for data drift vs production model's training data
     4. If drift > threshold: Train new model (compare performance of new model with performance of production model)
     5. If no drift: Skip training 
@@ -643,7 +649,8 @@ async def process_next_split_with_drift_monitoring():
             ["python", "src/data/automation_create_split.py"],
             capture_output=True,
             text=True,
-            timeout=120
+            timeout=120,
+            cwd="/app" 
         )
 
         if result.returncode != 0:
@@ -679,16 +686,24 @@ async def process_next_split_with_drift_monitoring():
             detail=f"Error creating split: {str(e)}"
         )
 
+
+    # STEP 2: Skip DVC tracking
+    print(f"\nSTEP 2: DVC tracking skipped (use /pipeline/next-split-drift-detection-dvc for DVC)")
+    dvc_status = "skipped"
+    git_commit = None
+
+
     # STEP 3: DRIFT CHECK
     print("STEP 3: Data Drift Monitoring")
     
     # Load monitoring config
     import yaml
-    with open('params.yaml', 'r') as f:
+    with open('/app/params.yaml', 'r') as f:
         params = yaml.safe_load(f)
         drift_config = params.get('monitoring', {})
         drift_threshold = drift_config.get('drift_threshold', 0.10)
         drift_enabled = drift_config.get('drift_check_enabled', True)
+
     
     drift_result = None
     skip_training = False
@@ -750,7 +765,8 @@ async def process_next_split_with_drift_monitoring():
             },
             "pipeline_steps": {
                 "split_creation": "completed",
-                "dvc_tracking": "completed",
+                "dvc_tracking": dvc_status,
+                "git_commit": git_commit,
                 "drift_check": "passed_no_significant_drift",
                 "model_training": "skipped",
                 "model_reload": "skipped"
@@ -766,7 +782,8 @@ async def process_next_split_with_drift_monitoring():
             ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
             capture_output=True,
             text=True,
-            timeout=300
+            timeout=300,
+            cwd="/app"
         )
         
         if result.returncode != 0:
@@ -821,7 +838,8 @@ async def process_next_split_with_drift_monitoring():
         },
         "pipeline_steps": {
             "split_creation": "completed",
-            "dvc_tracking": "completed",
+            "dvc_tracking": dvc_status,
+            "git_commit": git_commit,
             "drift_check": "drift_detected_training_triggered" if drift_result else "skipped_first_split",
             "model_training": "completed",
             "model_reload": "completed"
@@ -829,6 +847,7 @@ async def process_next_split_with_drift_monitoring():
         "current_production_model": model_info,
         "outputs": {
             "split_creation": split_output,
+            "dvc_tracking": "skipped",
             "training": training_output
         }
     }
@@ -841,6 +860,331 @@ async def process_next_split_with_drift_monitoring():
 
 
     return response
+
+
+
+# Endpoint 6: Automated Pipeline with DVC - Process Next Split
+@app.post("/pipeline/next-split-dvc")
+async def process_next_split_with_dvc():
+    """
+    Complete automated pipeline with DVC tracking.
+
+    Workflow:
+    1. Create next temporal split
+    2. Track with DVC + Git
+    3. Train model on new split
+    4. Compare with production model
+    5. Auto-promote if better
+    6. Reload production model
+    """
+
+    print("\n\033[1m--------------------\033[0m")
+    print("\n\033[1mAutomated Pipeline with DVC:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
+    start_time = time.time()
+    status_code = 200
+
+    try:
+        # STEP 1: Create split
+        print("\nSTEP 1: Creating next training data split.")
+        create_result = subprocess.run(
+            ["python", "src/data/automation_create_split.py"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd="/app"
+        )
+
+        if create_result.returncode != 0:
+            if "All splits complete" in create_result.stdout:
+                return {
+                    "status": "info",
+                    "message": "All temporal splits already created.",
+                    "suggestion": "No more splits to process."
+                }
+            raise Exception(f"Split creation failed: {create_result.stderr}")
+
+        # Extract split_id
+        output_lines = create_result.stdout.strip().split('\n')
+        split_line = [l for l in output_lines if 'Split' in l and 'created successfully' in l.lower()]
+        if not split_line:
+            raise Exception("Could not determine split_id")
+
+        try:
+            split_id = int(split_line[0].split('Split')[1].split()[0])
+        except (IndexError, ValueError):
+            raise Exception(f"Could not parse split_id from: {split_line[0]}")
+
+        print(f"Split {split_id} created")
+        print(create_result.stdout)
+
+        # STEP 2: Track with DVC
+        print(f"\nSTEP 2: Tracking Split {split_id} with DVC and Git.")
+        dvc_result = track_split(split_id)
+
+        if dvc_result["status"] != "success":
+            print(f"[WARNING] DVC tracking failed: {dvc_result['message']}")
+            dvc_status = "failed"
+            git_commit = None
+        else:
+            dvc_status = "completed"
+            git_commit = dvc_result["commit_hash"]
+            print(f"[SUCCESS] DVC tracking completed. Commit: {git_commit[:8]}")
+
+        # STEP 3: Train model
+        print(f"\nSTEP 3: Training model on split {split_id}.")
+        automation_experiment = AUTOMATION_EXPERIMENT_NAME
+
+        train_result = subprocess.run(
+            ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
+            capture_output=True,
+            text=True,
+            timeout=600,
+            cwd="/app"
+        )
+
+        if train_result.returncode != 0:
+            raise Exception(f"Training failed: {train_result.stderr}")
+
+        print("Training completed")
+
+        # STEP 4: Reload model
+        print("\nSTEP 4: Reloading production model.")
+        load_production_model()
+        print("Production model reloaded")
+
+        print("PIPELINE WITH DVC COMPLETED")
+        print("------------------")
+
+        return {
+            "status": "success",
+            "message": f"Pipeline with DVC completed: Split {split_id} created, tracked, trained",
+            "split_processed": split_id,
+            "pipeline_steps": {
+                "split_creation": "completed",
+                "dvc_tracking": dvc_status,
+                "git_commit": git_commit,
+                "model_training": "completed",
+                "model_reload": "completed"
+            },
+            "current_production_model": model_info,
+            "outputs": {
+                "split_creation": create_result.stdout,
+                "dvc_tracking": dvc_result.get("message", ""),
+                "training": train_result.stdout[-500:]
+            }
+        }
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Pipeline timeout")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Pipeline error: {str(e)}")
+    finally:
+        end_time = time.time()
+        duration = end_time - start_time
+        api_request_duration_seconds.labels(endpoint="/pipeline/next-split-dvc", method="POST").observe(duration)
+        api_requests_total.labels(endpoint="/pipeline/next-split-dvc", method="POST", status_code=status_code).inc()
+
+
+# Endpoint 7: Automated Pipeline with DVC and Drift Detection
+@app.post("/pipeline/next-split-drift-detection-dvc")
+async def process_next_split_with_drift_and_dvc():
+    """
+    Automated pipeline with DVC tracking and drift-triggered training.
+
+    Workflow:
+    1. Create next temporal split
+    2. Track with DVC + Git
+    3. Check for data drift
+    4. If drift > threshold: Train model
+    5. If no drift: Skip training
+    """
+    print("\n\033[1m--------------------\033[0m")
+    print("\n\033[1mAutomated Pipeline with DVC + Drift:\033[0m")
+    print("\n\033[1m--------------------\033[0m")
+
+    start_time = time.time()
+    status_code = 200
+
+    try:
+        # STEP 1: Create split
+        print("\nSTEP 1: Creating next training data split.")
+        result = subprocess.run(
+            ["python", "src/data/automation_create_split.py"],
+            capture_output=True,
+            text=True,
+            timeout=120,
+            cwd="/app"
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"Split creation failed: {result.stderr}")
+
+        split_output = result.stdout
+        print(split_output)
+
+        # Extract split_id
+        import re
+        match = re.search(r'Split (\d+) created', split_output)
+        if not match:
+            raise HTTPException(status_code=500, detail="Could not determine split_id")
+
+        split_id = int(match.group(1))
+        print(f"Split {split_id} created")
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Split creation timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error creating split: {str(e)}")
+
+    # STEP 2: Track with DVC
+    print(f"\nSTEP 2: Tracking Split {split_id} with DVC and Git.")
+    dvc_result = track_split(split_id)
+
+    if dvc_result["status"] != "success":
+        print(f"[WARNING] DVC tracking failed: {dvc_result['message']}")
+        dvc_status = "failed"
+        git_commit = None
+    else:
+        dvc_status = "completed"
+        git_commit = dvc_result["commit_hash"]
+        print(f"[SUCCESS] DVC tracking completed. Commit: {git_commit[:8]}")
+
+    # STEP 3: Drift check
+    print("STEP 3: Data Drift Monitoring")
+
+    drift_config = PARAMS.get('monitoring', {})
+    drift_threshold = drift_config.get('drift_threshold', 0.10)
+    drift_enabled = drift_config.get('drift_check_enabled', True)
+
+
+    drift_result = None
+    skip_training = False
+
+    if split_id == 1:
+        print("\nFirst split - no drift check needed")
+        print("Proceeding to training.")
+    elif not drift_enabled:
+        print("\nDrift check disabled")
+        print("Proceeding to training.")
+    else:
+        try:
+            from src.monitoring.data_drift import DataDriftMonitor
+
+            monitor = DataDriftMonitor()
+            drift_result = monitor.check_drift_for_split(split_id, save_report=True)
+            drift_percentage = drift_result['share_of_drifted_columns']
+
+            print(f"\nDrift Analysis:")
+            print(f"  Drifted Columns: {drift_result['number_of_drifted_columns']}/110 ({drift_percentage*100:.1f}%)")
+            print(f"  Threshold: {drift_threshold*100:.1f}%")
+
+            if drift_percentage < drift_threshold:
+                print(f"\nDECISION: Drift below threshold - SKIPPING TRAINING")
+                skip_training = True
+            else:
+                print(f"\nDECISION: Drift above threshold - PROCEEDING TO TRAINING")
+
+        except Exception as e:
+            print(f"\nDrift check failed: {e}")
+            print("Proceeding to training anyway...")
+
+    # Return if skipping
+    if skip_training:
+        return {
+            "status": "skipped",
+            "reason": "no_significant_drift",
+            "message": f"Drift below threshold, training skipped",
+            "split_processed": split_id,
+            "drift_check": {
+                "enabled": True,
+                "drift_detected": drift_result['dataset_drift'],
+                "drift_percentage": f"{drift_result['share_of_drifted_columns']*100:.1f}%",
+                "threshold": f"{drift_threshold*100:.1f}%"
+            },
+            "pipeline_steps": {
+                "split_creation": "completed",
+                "dvc_tracking": dvc_status,
+                "git_commit": git_commit,
+                "drift_check": "passed_no_significant_drift",
+                "model_training": "skipped",
+                "model_reload": "skipped"
+            }
+        }
+
+    # STEP 4: Training
+    print(f"STEP 4: Training model on split {split_id}")
+
+    try:
+        automation_experiment = AUTOMATION_EXPERIMENT_NAME
+        result = subprocess.run(
+            ["python", "src/models/train_model_pipeline.py", "--split_id", str(split_id), "--experiment_name", automation_experiment],
+            capture_output=True,
+            text=True,
+            timeout=300,
+            cwd="/app"
+        )
+
+        if result.returncode != 0:
+            raise HTTPException(status_code=500, detail=f"Training failed: {result.stderr}")
+
+        training_output = result.stdout
+        print(training_output)
+        print("Training completed")
+
+    except subprocess.TimeoutExpired:
+        raise HTTPException(status_code=504, detail="Training timed out")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Training error: {str(e)}")
+
+    # STEP 5: Reload model
+    print("STEP 5: Reloading production model")
+    load_defaults()
+    success = load_production_model()
+
+    if success:
+        print("Production model loaded")
+    else:
+        print("Warning: Could not reload production model")
+
+    print("\n" + "="*60)
+    print("PIPELINE WITH DVC + DRIFT COMPLETED")
+    print("="*60)
+
+    response = {
+        "status": "success",
+        "message": f"Pipeline with DVC + Drift completed: Split {split_id}",
+        "split_processed": split_id,
+        "drift_check": {
+            "enabled": True,
+            "drift_detected": drift_result['dataset_drift'] if drift_result else None,
+            "drift_percentage": f"{drift_result['share_of_drifted_columns']*100:.1f}%" if drift_result else "N/A",
+            "threshold": f"{drift_threshold*100:.1f}%"
+        },
+        "pipeline_steps": {
+            "split_creation": "completed",
+            "dvc_tracking": dvc_status,
+            "git_commit": git_commit,
+            "drift_check": "drift_detected_training_triggered" if drift_result else "skipped_first_split",
+            "model_training": "completed",
+            "model_reload": "completed"
+        },
+        "current_production_model": model_info,
+        "outputs": {
+            "split_creation": split_output,
+            "dvc_tracking": dvc_result.get("message", ""),
+            "training": training_output
+        }
+    }
+
+    end_time = time.time()
+    duration = end_time - start_time
+    api_request_duration_seconds.labels(endpoint="/pipeline/next-split-drift-detection-dvc", method="POST").observe(duration)
+    api_requests_total.labels(endpoint="/pipeline/next-split-drift-detection-dvc", method="POST", status_code=status_code).inc()
+
+    return response
+
 
 # Endpoint Health Check
 @app.get("/health")
@@ -868,7 +1212,7 @@ async def health():
 
 
 
-# Endpoint API information
+# Root  Endpoint API information
 @app.get("/")
 async def root():
     """API information"""
@@ -891,6 +1235,8 @@ async def root():
             "train": "POST /train",
             "pipeline": "POST /pipeline/next-split",
             "pipeline_drift_detection": "POST /pipeline/next-split-drift-detection",
+            "pipeline_dvc": "POST /pipeline/next-split-dvc", 
+            "pipeline_drift_detection_dvc": "POST /pipeline/next-split-drift-detection-dvc",  
             "metrics": "GET /metrics"
         },
         "mlflow_ui": MLFLOW_TRACKING_URI,
