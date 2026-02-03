@@ -43,6 +43,7 @@ services:
       - ./models:/app/models
       - ./tests:/app/tests
       - ./data:/app/data
+      - ./src/api:/app/src/api
       - ~/dvc-data-repo:/app/dvc-tracking
     restart: unless-stopped
 

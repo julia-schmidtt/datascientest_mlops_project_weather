@@ -105,17 +105,17 @@ def load_defaults():
     
     try:
         # Load defaults
-        with open('src/api/defaults.json', 'r') as f:
+        with open('/app/src/api/defaults.json', 'r') as f:
             defaults = json.load(f)
         print("\n- Defaults loaded to fill missing fields in input data.")
         
         # Load scaler
-        with open('models/scaler.pkl', 'rb') as f:
+        with open('/app/models/scaler.pkl', 'rb') as f:
             scaler = pickle.load(f)
         print("\n- Scaler loaded to scale input data before model prediction.")
         
         # Load validation data
-        with open('src/api/validation_data.json', 'r') as f:
+        with open('/app/src/api/validation_data.json', 'r') as f:
             validation_data = json.load(f)
         print("\n- Validation data loaded to check input data for location and season.\n")
         print("--------------------")
