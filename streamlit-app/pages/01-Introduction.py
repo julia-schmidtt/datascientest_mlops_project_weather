@@ -35,3 +35,11 @@ with tab1:
     content = "Build MLOps architecture to answer central question: Will it rain tomorrow?"
 
     st.markdown(text_card.format(content=content), unsafe_allow_html=True)
+
+col1, col2, col3 = st.columns([1, 2, 1])
+
+with col2:
+    st.image(
+        "/app/images/architecture.png",
+        width=600
+    )
