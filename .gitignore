@@ -119,4 +119,9 @@ monitoring/reports/*
 # MLflow
 mlruns/
 
+#Streamlit images
+streamlit-app/images/*
 
+# Repo for data tracking
+dvc-repo/
+data/automated_splits/
