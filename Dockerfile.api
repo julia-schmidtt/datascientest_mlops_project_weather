@@ -8,6 +8,11 @@ RUN apt-get update && apt-get install -y \
     openssh-client \
     && rm -rf /var/lib/apt/lists/*
 
+# Git configuration for API container
+RUN git config --global user.email "ml-pipeline@container.local" && \
+    git config --global user.name "ML Pipeline Container" && \
+    git config --global --add safe.directory /app/dvc-tracking
+
 # Install Kaggle to get dataset
 RUN pip install --no-cache-dir kaggle
 
@@ -15,8 +20,9 @@ RUN pip install --no-cache-dir kaggle
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy .env for credentials
-COPY .env .env
+# Build args for Kaggle credentials
+ARG KAGGLE_USERNAME
+ARG KAGGLE_KEY
 
 # Load raw dataset from Kaggle
 RUN mkdir -p /app/data/raw && \
@@ -32,10 +38,6 @@ RUN mkdir -p /app/data/interim /app/data/processed
 COPY src ./src
 COPY params.yaml params.yaml
 
-#RUN dvc remote add origin https://dagshub.com/julia-schmidtt/datascientest_mlops_project_weather.dvc
-#RUN dvc remote modify origin --local auth basic
-#RUN dvc remote modify origin --local user jooooo3141
-#RUN dvc remote modify origin --local password c28100db0e979764a8111c1589b83b46c2024571 
 EXPOSE 8000
 
 

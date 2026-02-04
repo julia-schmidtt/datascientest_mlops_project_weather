@@ -1,23 +1,18 @@
 #!/bin/bash
-# Automated Pipeline with Drift Detection: Process Next Training Data Split
-# Usage: ./scripts/process_next_split_with_drift.sh
+# Automated Pipeline: Process Next Training Data Split
+# Usage: ./scripts/process_next_split_dvc.sh
 
 echo "=========================================================="
-echo "Automated ML Pipeline with Drift Detection"
-echo "Weather Prediction Australia"
+echo "Automated ML Pipeline - Weather Prediction Australia"
 echo "=========================================================="
 
 # Change to project directory
 cd "$(dirname "$0")/.."
 
-
-# Call API endpoint with drift detection
+# Call API endpoint
 echo ""
-echo "[INFO] Calling /pipeline/next-split-drift-detection endpoint"
-echo "[INFO] Drift threshold: 2% (configured in params.yaml)"
-echo ""
-
-response=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8000/pipeline/next-split-drift-detection)
+echo "[INFO] Calling /pipeline/next-split-dvc endpoint."
+response=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8000/pipeline/next-split-dvc)
 
 # Extract status code
 http_code=$(echo "$response" | tail -n1)
@@ -37,7 +32,7 @@ fi
 
 echo ""
 echo "=========================================================="
-echo "ML Pipeline with Drift Detection completed"
+echo "ML Pipeline completed"
 echo "=========================================================="
 
 exit $exit_code

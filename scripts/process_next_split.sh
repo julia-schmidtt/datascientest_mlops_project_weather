@@ -9,8 +9,6 @@ echo "=========================================================="
 # Change to project directory
 cd "$(dirname "$0")/.."
 
-# Activate virtual environment
-source venv/bin/activate
 
 # Call API endpoint
 echo ""

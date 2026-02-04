@@ -32,15 +32,20 @@ services:
     build:
       context: .
       dockerfile: Dockerfile.api
+      args:
+        - KAGGLE_USERNAME=${KAGGLE_USERNAME}
+        - KAGGLE_KEY=${KAGGLE_KEY}
     container_name: fastapi_app
     ports:
       - "8000:8000"
+    env_file:
+      - .env 
     volumes:
-            #- ./src:/app/src
       - ./models:/app/models
-      - ./.dvc:/app/.dvc
-     # - ./data:/app/data
       - ./tests:/app/tests
+      - ./data:/app/data
+      - ./src/api:/app/src/api
+      - ~/dvc-data-repo:/app/dvc-tracking
     restart: unless-stopped
 
 

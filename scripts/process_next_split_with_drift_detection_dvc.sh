@@ -10,14 +10,13 @@ echo "=========================================================="
 # Change to project directory
 cd "$(dirname "$0")/.."
 
-
 # Call API endpoint with drift detection
 echo ""
-echo "[INFO] Calling /pipeline/next-split-drift-detection endpoint"
+echo "[INFO] Calling /pipeline/next-split-drift-detection-dvc endpoint"
 echo "[INFO] Drift threshold: 2% (configured in params.yaml)"
 echo ""
 
-response=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8000/pipeline/next-split-drift-detection)
+response=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8000/pipeline/next-split-drift-detection-dvc)
 
 # Extract status code
 http_code=$(echo "$response" | tail -n1)
