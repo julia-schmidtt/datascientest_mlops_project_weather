@@ -529,6 +529,7 @@ Execution timeline:
 Time 00:00: Split 1 → Model v20 → Production
 Time 00:02: Split 2 → Drift Check → If drift > threshold → Model v21 → Compare → Promote if better
 ...
+```
 
 **Option c: Pipeline WITHOUT Drift Detection WITH Data Tracking** (trains every split)
 
