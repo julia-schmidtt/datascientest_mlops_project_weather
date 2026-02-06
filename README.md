@@ -8,9 +8,7 @@ This project implements a MLOps pipeline for rain prediction in Australia.
 
 - [Project Organization](#project-organization)
 - [Setup](#setup)
-  - [Option A: Docker Container Setup](#option-a-docker-container-setup)
 - [API Usage](#api-usage)
-  - [Option A: Docker Container API Usage](#option-a-docker-container-api-usage)
 - [Additional Information](#additional-information)
   - [1. XGBoost Hyperparameters](#1-xgboost-hyperparameters-in-paramsyaml)
   - [2. SMOTE Class Balancing](#2-smote-class-balancing)
@@ -103,7 +101,7 @@ This project implements a MLOps pipeline for rain prediction in Australia.
 ## Setup
 
 
-### Option A: Docker Container Setup
+### Docker Container Setup
 
 #### **Step 1: Clone Repository**
 
@@ -159,9 +157,13 @@ GRAFANA_DASHBOARD_UID=dashboard-uid
 
 > **Get your DagsHub token:** DagsHub → Settings → Tokens
 
+> **Get your Github token:** GitHub → Settings →Developer Settings → Personal access tokens → Tokens (classic) 
+
+
+> If you don't want to use the automated download of the raw dataset from Kaggle or if you don't have an account, download the raw dataset manually and put it in data/raw (`https://www.kaggle.com/jsphyg/weather-dataset-rattle-package`).
 
 #### **Step 3: Data Tracking Setup**
-Only necessary if you want to track you data using the two dvc API pipeline endpoints
+Only necessary if you want to track your data using the two dvc API pipeline endpoints.
 
 ```bash
 # Navigate to home directory
@@ -228,12 +230,12 @@ docker compose up -d --build
 
 Only build certain containers:
 ```bash
-docker compose up -d service-name-from-docker-compose-file
+docker compose up -d --build service-name-from-docker-compose-file
 ```
 
 E.g. if you want to build all containers except Airflow containers:
 ```bash
-docker compose up -d fastapi streamlit postgres redis prometheus grafana node-exporter
+docker compose up -d --build fastapi streamlit postgres redis prometheus grafana node-exporter
 
 ```
 The following services will be available if you start all containers:
@@ -289,7 +291,7 @@ docker compose down service-name-from-docker-compose-file
 ```
 
 ```docker compose stop``` will only stop containers and data inside containers will be kept. If you want to start the containers again use ```docker compose start```.
-```docker compose down``` will remove containers and data inside containers will be deleted. If you want to build the containers again use ```docker compose up```.
+```docker compose down``` will remove containers and data inside containers will be deleted. If you want to build the containers again use ```docker compose up -d --build```.
 
 ---
 ---
@@ -667,7 +669,7 @@ min_child_weight: 3
 ```yaml
 monitoring:
   drift_check_enabled: true
-  drift_threshold: 0.10
+  drift_threshold: 0.02
 ```
 
 ---
