@@ -12,6 +12,7 @@ st.title("API Demo")
 API_HOST = os.getenv("API_HOST", "localhost")
 API_PORT = os.getenv("API_PORT", "8000")
 API_URL = f"http://{API_HOST}:{API_PORT}"
+HEADER = {"authorization": f"Bearer super-secret-token"}
 
 
 # API Status Check
@@ -122,7 +123,7 @@ with tab1:
 
             if button_clicked:
                 try:
-                    response = requests.get(f"{API_URL}{path}", timeout=5)
+                    response = requests.get(f"{API_URL}{path}", timeout=5, headers=HEADER)
 
                     if response.status_code == 200:
                         content_type = response.headers.get('Content-Type', '')
@@ -150,7 +151,7 @@ with tab1:
 
                 if button_clicked:
                     try:
-                        response = requests.get(f"{API_URL}{path}", timeout=5)
+                        response = requests.get(f"{API_URL}{path}", timeout=5, headers=HEADER)
 
                         if response.status_code == 200:
                             content_type = response.headers.get('Content-Type', '')
@@ -233,7 +234,8 @@ with tab2:
                         response = requests.post(
                             f"{API_URL}/predict/simple",
                             json=payload,
-                            timeout=10
+                            timeout=10,
+                            headers=HEADER
                         )
 
                     if response.status_code == 200:

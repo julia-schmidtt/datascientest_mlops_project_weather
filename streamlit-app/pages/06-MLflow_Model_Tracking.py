@@ -17,6 +17,7 @@ Track and compare machine learning experiments, model versions, and performance 
 API_HOST = os.getenv("API_HOST", "localhost")
 API_PORT = os.getenv("API_PORT", "8000")
 API_URL = f"http://{API_HOST}:{API_PORT}"
+HEADER = {"authorization": f"Bearer super-secret-token"}
 
 # DagsHub MLflow Configuration
 DAGSHUB_USERNAME = os.getenv("DAGSHUB_USERNAME", "")
@@ -54,7 +55,7 @@ tab1, tab2 = st.tabs(["Current Production Model", "MLflow History"])
 
 with tab1:
     try:
-        response = requests.get(f"{API_URL}/model/info", timeout=5)
+        response = requests.get(f"{API_URL}/model/info", timeout=5, headers=HEADER)
         if response.status_code == 200:
             result = response.json()
             
